@@ -18,15 +18,15 @@ export function MobileNav() {
             key={item.href}
             href={item.href}
             className={clsx(
-              'relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold transition-colors active:scale-[0.97]',
+              'relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-semibold leading-tight transition-colors active:scale-[0.97]',
               active ? 'text-brand-300' : 'text-ink/45'
             )}
           >
             {active && (
-              <span className="absolute inset-x-5 top-0 h-[3px] rounded-b-full bg-brand-400" />
+              <span className="absolute inset-x-3 top-0 h-[3px] rounded-b-full bg-brand-400" />
             )}
             <Icon size={21} strokeWidth={active ? 2.25 : 1.75} />
-            {item.label}
+            {item.labelCorto}
           </Link>
         )
       })}

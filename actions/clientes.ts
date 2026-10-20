@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { searchContacts } from '@/lib/ghl/client'
-import { getContactoNombre } from '@/lib/formato'
+import { getContactoNombre, parseEurosACents } from '@/lib/formato'
 import { errorDeZod, leerForm, type Resultado } from '@/lib/acciones'
 
 export interface ContactoEncontrado {
@@ -88,6 +88,19 @@ const actualizarSchema = z.object({
   nombre_cache: z.string().min(1, 'El nombre no puede quedar vacío'),
   estado: z.enum(['activo', 'pausado', 'finalizado']),
   fecha_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de inicio no válida'),
+  // Solo informativa: lo que cobraría sin descuentos. Vacío = sin referencia.
+  cuota_referencia: z
+    .string()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return null
+      const cents = parseEurosACents(v)
+      if (cents === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Cuota de referencia no válida' })
+        return z.NEVER
+      }
+      return cents
+    }),
   notas: z.string().optional(),
 })
 
@@ -95,12 +108,12 @@ export async function actualizarCliente(_prev: Resultado, formData: FormData): P
   await requireUser()
   const parsed = actualizarSchema.safeParse(leerForm(formData))
   if (!parsed.success) return errorDeZod(parsed.error)
-  const { id, ...cambios } = parsed.data
+  const { id, cuota_referencia, ...cambios } = parsed.data
 
   const supabase = await createClient()
   const { error } = await supabase
     .from('clientes')
-    .update({ ...cambios, notas: cambios.notas ?? null })
+    .update({ ...cambios, cuota_referencia_cents: cuota_referencia, notas: cambios.notas ?? null })
     .eq('id', id)
   if (error) return { error: `No se pudo guardar: ${error.message}` }
 

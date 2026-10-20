@@ -5,6 +5,7 @@ import { Check } from 'lucide-react'
 import { actualizarCliente } from '@/actions/clientes'
 import { RESULTADO_INICIAL } from '@/lib/acciones'
 import { ESTADOS_CLIENTE, opciones } from '@/lib/catalogos'
+import { centsAEurosInput } from '@/lib/formato'
 import { Button } from '@/components/ui/button'
 import { Campo, Input, Select, Textarea } from '@/components/ui/input'
 import { MensajeError } from '@/components/form-dialogo'
@@ -33,6 +34,19 @@ export function FormCliente({ cliente }: { cliente: Cliente }) {
           <Input name="fecha_inicio" type="date" required defaultValue={cliente.fecha_inicio} />
         </Campo>
       </div>
+      <Campo label="Cuota de referencia (€/mes, opcional)">
+        <Input
+          name="cuota_referencia"
+          inputMode="decimal"
+          defaultValue={
+            cliente.cuota_referencia_cents !== null ? centsAEurosInput(cliente.cuota_referencia_cents) : ''
+          }
+          placeholder="497,00"
+        />
+        <p className="text-[11px] text-ink/40">
+          Lo que cobrarías sin descuentos. Solo se usa para compararlo con lo facturado.
+        </p>
+      </Campo>
       <Campo label="Notas">
         <Textarea
           name="notas"

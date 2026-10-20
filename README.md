@@ -1,12 +1,13 @@
 # CRM · Alejandro Morales
 
-Panel personal: pipeline de ventas (GHL), clientes y proyectos, facturación y métricas.
+Panel personal: pipeline de ventas (GHL), clientes y proyectos, contabilidad interna, documentación de Travelify y métricas.
 Referencia técnica completa en [`PROYECTO.md`](./PROYECTO.md).
 
 ## Setup
 
-1. **Supabase**: proyecto dedicado (no reutilizar el de otros CRMs). Ejecutar
-   `supabase/migrations/0001_init.sql` en el SQL Editor.
+1. **Supabase**: proyecto dedicado (no reutilizar el de otros CRMs). Ejecutar en el SQL Editor,
+   en orden: `supabase/migrations/0001_init.sql`, `0002_contabilidad.sql` (crea también el bucket
+   privado `facturas`) y `0003_documentacion.sql`.
 2. **Usuario**: crear el usuario en Auth (email + contraseña, email confirmado) e insertar su fila:
    ```sql
    insert into public.team_members (id, email, full_name)

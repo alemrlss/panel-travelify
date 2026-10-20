@@ -3,35 +3,31 @@ import { notFound } from 'next/navigation'
 import {
   ArrowLeft,
   Building2,
+  CalendarClock,
   ExternalLink,
+  FilePlus,
+  FileText,
   FolderKanban,
   Mail,
   MessageCircle,
-  Pause,
   Pencil,
   Phone,
-  Play,
   Plus,
   Receipt,
   Repeat,
   Trash2,
+  TrendingUp,
   User,
-  Wallet,
 } from 'lucide-react'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getContact } from '@/lib/ghl/client'
-import { esRecurrenteVigente, esVencido } from '@/lib/metricas'
+import { getFacturas, getOpcionesFactura } from '@/lib/contabilidad'
+import { facturacionPorCliente } from '@/lib/facturacion-clientes'
 import { formatEUR, formatFecha, getContactoNombre, waLink } from '@/lib/formato'
-import { ESTADOS_CLIENTE, ESTADOS_PROYECTO, TIPOS_COBRO, TIPOS_PROYECTO } from '@/lib/catalogos'
+import { ESTADOS_CLIENTE, ESTADOS_PROYECTO, TIPOS_PROYECTO } from '@/lib/catalogos'
 import { eliminarCliente } from '@/actions/clientes'
 import { eliminarProyecto, guardarProyecto } from '@/actions/proyectos'
-import {
-  eliminarServicio,
-  guardarServicio,
-  registrarPago,
-  setServicioActivo,
-} from '@/actions/facturacion'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardTitle } from '@/components/ui/card'
@@ -40,9 +36,11 @@ import { EstadoVacio } from '@/components/ui/estado-vacio'
 import { Dato } from '@/components/dato'
 import { FormDialogo } from '@/components/form-dialogo'
 import { BotonAccion } from '@/components/boton-accion'
-import { CamposPago, CamposProyecto, CamposServicio } from '@/components/campos'
+import { CamposProyecto } from '@/components/campos'
 import { FormCliente } from '@/components/clientes/form-cliente'
-import { ListaPagos } from '@/components/facturacion/lista-pagos'
+import { Referencia } from '@/components/clientes/referencia'
+import { ListaFacturas } from '@/components/contabilidad/lista-facturas'
+import { NuevaFactura } from '@/components/contabilidad/nueva-factura'
 import { clsx } from '@/lib/clsx'
 
 export default async function ClientePage({
@@ -58,21 +56,14 @@ export default async function ClientePage({
   const { data: cliente } = await supabase.from('clientes').select('*').eq('id', clientId).maybeSingle()
   if (!cliente) notFound()
 
-  const [{ data: proyectos }, { data: servicios }, { data: pagos }, contacto] = await Promise.all([
+  const [{ data: proyectos }, facturas, opciones, facturacion, contacto] = await Promise.all([
     supabase.from('proyectos').select('*').eq('cliente_id', clientId).order('created_at'),
-    supabase.from('servicios_contratados').select('*').eq('cliente_id', clientId).order('created_at'),
-    supabase
-      .from('pagos')
-      .select('*')
-      .eq('cliente_id', clientId)
-      .order('fecha_vencimiento', { ascending: false }),
+    getFacturas({ tipo: 'venta', clienteId: clientId }),
+    getOpcionesFactura(),
+    facturacionPorCliente([cliente]),
     getContact(cliente.ghl_contact_id).catch(() => null),
   ])
-
-  const mrr = (servicios ?? []).filter((s) => esRecurrenteVigente(s)).reduce((t, s) => t + s.importe_cents, 0)
-  const pendientes = (pagos ?? []).filter((p) => p.estado === 'pendiente')
-  const cobrado = (pagos ?? []).filter((p) => p.estado === 'pagado').reduce((t, p) => t + p.importe_cents, 0)
-  const nombresProyecto = new Map(proyectos?.map((p) => [p.id, p.nombre]))
+  const f = facturacion.get(cliente.id)!
 
   return (
     <PageContainer>
@@ -89,15 +80,21 @@ export default async function ClientePage({
         action={<Badge tone={ESTADOS_CLIENTE[cliente.estado].tone}>{ESTADOS_CLIENTE[cliente.estado].label}</Badge>}
       />
 
-      <div className="mb-4 grid grid-cols-3 gap-3">
-        <Resumen icon={<Repeat size={14} />} label="Mensual" valor={formatEUR(mrr)} />
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Resumen icon={<Receipt size={14} />} label="Este mes" valor={formatEUR(f.esteMes)} nota={<Referencia f={f} />} />
+        <Resumen icon={<Repeat size={14} />} label="Media mensual (12 m)" valor={formatEUR(f.mediaMensual)} />
         <Resumen
-          icon={<Wallet size={14} />}
-          label="Pendiente"
-          valor={formatEUR(pendientes.reduce((t, p) => t + p.importe_cents, 0))}
-          alerta={pendientes.some((p) => esVencido(p))}
+          icon={<TrendingUp size={14} />}
+          label="Facturado total"
+          valor={formatEUR(f.total)}
+          nota={`${f.nFacturas} factura${f.nFacturas === 1 ? '' : 's'}`}
         />
-        <Resumen icon={<Receipt size={14} />} label="Cobrado total" valor={formatEUR(cobrado)} />
+        <Resumen
+          icon={<CalendarClock size={14} />}
+          label="Pendiente de cobro"
+          valor={formatEUR(f.pendiente)}
+          alerta={f.pendiente > 0}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
@@ -146,9 +143,7 @@ export default async function ClientePage({
                 </Dato>
               </dl>
             ) : (
-              <p className="text-sm text-amber-200">
-                No se pudieron leer los datos de contacto en este momento.
-              </p>
+              <p className="text-sm text-amber-200">No se pudieron leer los datos de contacto en este momento.</p>
             )}
           </Card>
 
@@ -158,7 +153,7 @@ export default async function ClientePage({
             <div className="mt-5 border-t border-hairline/[0.06] pt-4">
               <BotonAccion
                 action={eliminarCliente.bind(null, cliente.id)}
-                confirmar={`¿Eliminar a ${cliente.nombre_cache}? Se borran también sus proyectos, servicios y pagos. El contacto en tu CRM no se toca.`}
+                confirmar={`¿Eliminar a ${cliente.nombre_cache}? Se borran sus proyectos. Sus facturas se conservan en Contabilidad y el contacto en tu CRM no se toca.`}
                 variant="danger"
               >
                 <Trash2 size={14} />
@@ -168,8 +163,34 @@ export default async function ClientePage({
           </Card>
         </div>
 
-        {/* Columna derecha: proyectos, servicios, pagos */}
+        {/* Columna derecha: facturas y proyectos */}
         <div className="space-y-4 lg:col-span-3">
+          <Card>
+            <CardTitle
+              icon={<FileText size={17} />}
+              action={
+                <NuevaFactura
+                  tipo="venta"
+                  opciones={opciones}
+                  clienteFijo={{ id: cliente.id, nombre_cache: cliente.nombre_cache }}
+                  trigger={<><Plus size={15} />Factura</>}
+                  triggerSize="sm"
+                />
+              }
+            >
+              Facturas de venta
+            </CardTitle>
+            {facturas.length === 0 ? (
+              <EstadoVacio
+                icon={<FilePlus size={20} />}
+                titulo="Sin facturas todavía"
+                texto="Registra lo que le facturas, con los descuentos ya aplicados: así sabes cuánto te factura de verdad."
+              />
+            ) : (
+              <ListaFacturas facturas={facturas} opciones={opciones} ocultarContraparte />
+            )}
+          </Card>
+
           <Card>
             <CardTitle
               icon={<FolderKanban size={17} />}
@@ -244,109 +265,6 @@ export default async function ClientePage({
               </ul>
             )}
           </Card>
-
-          <Card>
-            <CardTitle
-              icon={<Repeat size={17} />}
-              action={
-                <FormDialogo
-                  titulo="Nuevo servicio contratado"
-                  trigger={<><Plus size={15} />Servicio</>}
-                  triggerSize="sm"
-                  action={guardarServicio}
-                  submitLabel="Crear servicio"
-                >
-                  <CamposServicio clienteId={cliente.id} proyectos={proyectos ?? []} />
-                </FormDialogo>
-              }
-            >
-              Lo que cobra
-            </CardTitle>
-            {!servicios?.length ? (
-              <EstadoVacio
-                icon={<Repeat size={20} />}
-                titulo="Sin servicios contratados"
-                texto="Añade lo que te paga este cliente: una cuota mensual o un pago único."
-              />
-            ) : (
-              <ul className="divide-y divide-hairline/[0.06]">
-                {servicios.map((s) => (
-                  <li key={s.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className={clsx('min-w-0', !s.activo && 'opacity-50')}>
-                      <p className="truncate text-sm font-semibold text-ink">{s.concepto}</p>
-                      <p className="text-xs text-ink/45">
-                        {TIPOS_COBRO[s.tipo_cobro]}
-                        {s.tipo_cobro === 'recurrente_mensual' && ` · día ${s.dia_cobro}`}
-                        {` · desde ${formatFecha(s.fecha_inicio)}`}
-                        {s.fecha_fin && ` hasta ${formatFecha(s.fecha_fin)}`}
-                        {s.proyecto_id && nombresProyecto.get(s.proyecto_id) && ` · ${nombresProyecto.get(s.proyecto_id)}`}
-                      </p>
-                    </div>
-                    <div className="flex flex-shrink-0 items-center justify-between gap-2 sm:justify-end">
-                      <span className="flex items-center gap-2">
-                        <span className="tabular text-sm font-bold text-ink">
-                          {formatEUR(s.importe_cents)}
-                          {s.tipo_cobro === 'recurrente_mensual' && <span className="text-xs font-medium text-ink/45">/mes</span>}
-                        </span>
-                        {!s.activo && <Badge>Inactivo</Badge>}
-                      </span>
-                      <span className="flex items-center">
-                        <BotonAccion
-                          action={setServicioActivo.bind(null, s.id, !s.activo)}
-                          size="icon"
-                          title={s.activo ? 'Desactivar' : 'Activar'}
-                        >
-                          {s.activo ? <Pause size={15} /> : <Play size={15} />}
-                        </BotonAccion>
-                        <FormDialogo
-                          titulo="Editar servicio"
-                          trigger={<Pencil size={15} />}
-                          triggerVariant="ghost"
-                          triggerSize="icon"
-                          triggerTitle="Editar"
-                          action={guardarServicio}
-                        >
-                          <CamposServicio clienteId={cliente.id} proyectos={proyectos ?? []} servicio={s} />
-                        </FormDialogo>
-                        <BotonAccion
-                          action={eliminarServicio.bind(null, s.id)}
-                          confirmar={`¿Eliminar "${s.concepto}"? Los cobros ya generados se conservan.`}
-                          size="icon"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={15} />
-                        </BotonAccion>
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          <Card>
-            <CardTitle
-              icon={<Wallet size={17} />}
-              action={
-                <FormDialogo
-                  titulo="Registrar cobro"
-                  trigger={<><Plus size={15} />Cobro</>}
-                  triggerSize="sm"
-                  action={registrarPago}
-                  submitLabel="Registrar"
-                >
-                  <CamposPago clientes={[]} clienteId={cliente.id} />
-                </FormDialogo>
-              }
-            >
-              Cobros
-            </CardTitle>
-            {!pagos?.length ? (
-              <EstadoVacio icon={<Wallet size={20} />} titulo="Sin cobros registrados" />
-            ) : (
-              <ListaPagos pagos={pagos} />
-            )}
-          </Card>
         </div>
       </div>
     </PageContainer>
@@ -357,20 +275,30 @@ function Resumen({
   icon,
   label,
   valor,
+  nota,
   alerta = false,
 }: {
   icon: React.ReactNode
   label: string
   valor: string
+  nota?: React.ReactNode
   alerta?: boolean
 }) {
   return (
-    <div className={clsx('rounded-2xl border bg-card px-3 py-3 sm:px-4', alerta ? 'border-red-500/30' : 'border-hairline/[0.07]')}>
+    <div
+      className={clsx(
+        'rounded-2xl border bg-card px-3 py-3 sm:px-4',
+        alerta ? 'border-amber-400/30' : 'border-hairline/[0.07]'
+      )}
+    >
       <p className="flex items-center gap-1.5 text-[11px] font-semibold text-ink/45">
-        <span className={alerta ? 'text-red-300' : 'text-brand-300'}>{icon}</span>
+        <span className={alerta ? 'text-amber-300' : 'text-brand-300'}>{icon}</span>
         {label}
       </p>
-      <p className={clsx('tabular mt-1 text-base font-bold sm:text-xl', alerta ? 'text-red-300' : 'text-ink')}>{valor}</p>
+      <p className={clsx('tabular mt-1 text-base font-bold sm:text-xl', alerta ? 'text-amber-300' : 'text-ink')}>
+        {valor}
+      </p>
+      {nota && <p className="mt-0.5 text-[11px] text-ink/45">{nota}</p>}
     </div>
   )
 }

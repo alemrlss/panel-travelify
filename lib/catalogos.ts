@@ -1,13 +1,14 @@
 import type { Tone } from '@/components/ui/badge'
 import type {
   EstadoCliente,
+  EstadoFactura,
   EstadoProyecto,
-  TipoCobro,
+  TipoFactura,
   TipoProyecto,
 } from '@/lib/supabase/types'
 
 // Etiquetas visibles de los valores guardados en Supabase. Tienen que coincidir
-// con los check de supabase/migrations/0001_init.sql.
+// con los check de supabase/migrations/.
 
 export const ESTADOS_CLIENTE: Record<EstadoCliente, { label: string; tone: Tone }> = {
   activo: { label: 'Activo', tone: 'success' },
@@ -38,12 +39,19 @@ export const ESTADOS_PROYECTO: Record<EstadoProyecto, { label: string; tone: Ton
   pausado: { label: 'Pausado', tone: 'warning' },
 }
 
-export const TIPOS_COBRO: Record<TipoCobro, string> = {
-  recurrente_mensual: 'Mensual',
-  unico: 'Pago único',
+export const TIPOS_FACTURA: Record<TipoFactura, string> = {
+  venta: 'Venta',
+  compra: 'Compra',
 }
 
-export const METODOS_PAGO = ['Transferencia', 'Bizum', 'Tarjeta', 'Stripe', 'Efectivo', 'Otro']
+/** En ventas "pagada" significa cobrada: la etiqueta cambia según el tipo. */
+export function estadoFactura(
+  tipo: TipoFactura,
+  estado: EstadoFactura
+): { label: string; tone: Tone } {
+  if (estado === 'pagada') return { label: tipo === 'venta' ? 'Cobrada' : 'Pagada', tone: 'success' }
+  return { label: tipo === 'venta' ? 'Pendiente de cobro' : 'Pendiente de pago', tone: 'warning' }
+}
 
 export function opciones<T extends string>(
   catalogo: Record<T, string | { label: string }>
