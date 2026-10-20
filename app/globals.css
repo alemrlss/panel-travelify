@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink-rgb: 255 255 255; /* texto */
+  --surface-rgb: 10 10 10; /* fondo de página (#0A0A0A, el de la web) */
+  --card-rgb: 17 17 17; /* tarjetas (#111111) */
+  --elevated-rgb: 23 23 23; /* inputs, filas, hover (#171717) */
+  --hairline-rgb: 255 255 255; /* bordes sutiles */
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-surface text-ink;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+}
+
+::selection {
+  background-color: rgb(139 92 246 / 0.4);
+}
+
+/* Scrollbar violeta, igual que la web */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #7c3aed transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #7c3aed;
+  border-radius: 9999px;
+}
+
+:focus-visible {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
+
+/* Números tabulares en importes y KPIs */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
