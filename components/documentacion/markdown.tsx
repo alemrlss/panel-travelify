@@ -42,6 +42,7 @@ export function Markdown({ contenido, className }: { contenido: string; classNam
         'prose-a:text-brand-300 prose-a:no-underline hover:prose-a:underline',
         'prose-strong:text-ink prose-code:rounded prose-code:bg-elevated prose-code:px-1.5 prose-code:py-0.5 prose-code:font-medium prose-code:before:content-none prose-code:after:content-none',
         'prose-pre:border prose-pre:border-hairline/10 prose-pre:bg-elevated',
+        '[&_.contains-task-list]:list-none [&_.contains-task-list]:pl-0 [&_.task-list-item_input]:mr-2 [&_.task-list-item_input]:accent-brand-500',
         'prose-th:text-ink prose-td:border-hairline/10 prose-hr:border-hairline/10 prose-blockquote:border-brand-500 prose-li:marker:text-brand-400',
         className
       )}

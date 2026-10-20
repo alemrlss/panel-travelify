@@ -74,7 +74,9 @@ export function BarrasIngresosGastos({ meses }: { meses: Mes[] }) {
         <span className="font-semibold text-ink/85">{formatEUR(meses[actual].gastos)}</span> de gastos
       </p>
 
-      <table className="sr-only">
+      {/* sr-only en un div: una <table> ignora width:1px y desbordaba la página en móvil */}
+      <div className="sr-only">
+      <table>
         <caption>Ingresos y gastos por mes (sin IVA), últimos 6 meses</caption>
         <thead>
           <tr>
@@ -93,6 +95,7 @@ export function BarrasIngresosGastos({ meses }: { meses: Mes[] }) {
           ))}
         </tbody>
       </table>
+      </div>
     </figure>
   )
 }

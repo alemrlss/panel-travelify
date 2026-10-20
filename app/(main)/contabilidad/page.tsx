@@ -20,7 +20,7 @@ import {
   resumenTrimestral,
   trimestreActual,
 } from '@/lib/contabilidad'
-import { formatEUR, hoyISO, inicioDeMes, nombreMes } from '@/lib/formato'
+import { capitalizar, formatEUR, hoyISO, inicioDeMes, nombreMes } from '@/lib/formato'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardTitle } from '@/components/ui/card'
@@ -45,7 +45,7 @@ function opcionesPeriodo(tipo: 'mes' | 'trimestre' | 'año', hoy: string) {
   if (tipo === 'mes') {
     return Array.from({ length: 12 }, (_, i) => {
       const inicio = inicioDeMes(-i, hoy)
-      return { value: inicio.slice(0, 7), label: nombreMes(inicio, true) }
+      return { value: inicio.slice(0, 7), label: capitalizar(nombreMes(inicio, true)) }
     })
   }
   if (tipo === 'trimestre') {
@@ -135,15 +135,15 @@ export default async function ContabilidadPage({
             param="periodo"
             valor={periodo.valor}
             opciones={opcionesPeriodo(periodo.tipo, hoy)}
-            className="capitalize sm:w-60"
+            className="sm:w-60"
           />
         </div>
       )}
 
       {vista !== 'resumen' && (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <KpiCard icon={<ArrowUpCircle size={15} />} label="Ingresos" valor={formatEUR(r.ingresos)} detalle={`${r.nVentas} ventas · sin IVA`} />
-          <KpiCard icon={<ArrowDownCircle size={15} />} label="Gastos" valor={formatEUR(r.gastos)} detalle={`${r.nCompras} compras · sin IVA`} />
+          <KpiCard icon={<ArrowUpCircle size={15} />} label="Ingresos" valor={formatEUR(r.ingresos)} detalle={`${r.nVentas} venta${r.nVentas === 1 ? '' : 's'} · sin IVA`} />
+          <KpiCard icon={<ArrowDownCircle size={15} />} label="Gastos" valor={formatEUR(r.gastos)} detalle={`${r.nCompras} compra${r.nCompras === 1 ? '' : 's'} · sin IVA`} />
           <KpiCard
             icon={<PiggyBank size={15} />}
             label="Beneficio"
@@ -232,12 +232,9 @@ export default async function ContabilidadPage({
             <CardTitle
               icon={<Scale size={17} />}
               action={
-                <SelectorParam
-                  param="año"
-                  valor={String(añoResumen)}
-                  opciones={opcionesPeriodo('año', hoy)}
-                  className="w-28"
-                />
+                <div className="w-28 flex-shrink-0">
+                  <SelectorParam param="año" valor={String(añoResumen)} opciones={opcionesPeriodo('año', hoy)} />
+                </div>
               }
             >
               Resumen {añoResumen}

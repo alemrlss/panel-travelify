@@ -245,7 +245,7 @@ function VerTodo({ href }: { href: string }) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-1 text-xs font-semibold text-brand-300 hover:text-brand-200"
+      className="inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold text-brand-300 hover:text-brand-200"
     >
       Ver todo
       <ArrowRight size={13} />

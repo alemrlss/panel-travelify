@@ -82,6 +82,11 @@ export function nombreMes(inicio: string, largo = false): string {
   })
 }
 
+/** "octubre de 2026" → "Octubre de 2026" (solo la primera letra). */
+export function capitalizar(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 export function getContactoNombre(contact?: {
   name?: string
   contactName?: string

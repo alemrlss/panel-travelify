@@ -12,7 +12,7 @@ export function ExportarMes({ meses }: { meses: { value: string; label: string }
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
-      <Select value={mes} onChange={(e) => setMes(e.target.value)} className="capitalize sm:w-56">
+      <Select value={mes} onChange={(e) => setMes(e.target.value)} className="sm:w-56">
         {meses.map((m) => (
           <option key={m.value} value={m.value}>
             {m.label}
