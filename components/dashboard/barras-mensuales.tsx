@@ -23,8 +23,14 @@ export function BarrasMensuales({ meses }: { meses: { inicio: string; cents: num
                   {formatEUR(m.cents)}
                 </span>
               )}
-              {/* Tooltip */}
-              <span className="tabular pointer-events-none absolute -top-2 left-1/2 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border border-hairline/10 bg-elevated px-2 py-1 text-[11px] font-semibold text-ink opacity-0 shadow-soft transition-opacity group-hover:opacity-100">
+              {/* Tooltip: `hidden` (no opacity-0) para que no ocupe ancho y desborde la
+                  página en móvil; anclado al borde en la primera y última barra. */}
+              <span
+                className={
+                  'tabular pointer-events-none absolute -top-2 z-10 hidden -translate-y-full whitespace-nowrap rounded-md border border-hairline/10 bg-elevated px-2 py-1 text-[11px] font-semibold text-ink shadow-soft group-hover:block ' +
+                  (i === 0 ? 'left-0' : i === actual ? 'right-0' : 'left-1/2 -translate-x-1/2')
+                }
+              >
                 {nombreMes(m.inicio, true)}: {formatEUR(m.cents)}
               </span>
               <div

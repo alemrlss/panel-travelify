@@ -2,23 +2,34 @@
 // deben dar el mismo texto, si no React da error de hidratación.
 const TZ = 'Europe/Madrid'
 
-const eur = new Intl.NumberFormat('es-ES', {
+const eurEntero = new Intl.NumberFormat('es-ES', {
   style: 'currency',
   currency: 'EUR',
+  maximumFractionDigits: 0,
+})
+const eurDecimal = new Intl.NumberFormat('es-ES', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
-  minimumFractionDigits: 0,
 })
 
+/** Sin decimales si el importe es redondo ("1.500 €"), si no siempre dos ("497,50 €"). */
 export function formatEUR(cents: number): string {
-  return eur.format(cents / 100)
+  return (cents % 100 === 0 ? eurEntero : eurDecimal).format(cents / 100)
 }
 
-/** "1.234,50" o "1234.5" → céntimos. Devuelve null si no es un importe válido. */
+/** "1.234,50", "1.500", "1234.5" → céntimos. Devuelve null si no es un importe válido. */
 export function parseEurosACents(valor: string): number | null {
   const limpio = valor.trim().replace(/\s|€/g, '')
   if (!limpio) return null
-  // Si tiene coma, la coma es el decimal y los puntos son miles (formato es-ES).
-  const normal = limpio.includes(',') ? limpio.replace(/\./g, '').replace(',', '.') : limpio
+  // Formato es-ES: con coma, la coma es el decimal y los puntos son miles. Sin
+  // coma, "1.500" / "12.000.000" (grupos de 3) también son miles, no decimales.
+  const normal = limpio.includes(',')
+    ? limpio.replace(/\./g, '').replace(',', '.')
+    : /^\d{1,3}(\.\d{3})+$/.test(limpio)
+      ? limpio.replace(/\./g, '')
+      : limpio
   const n = Number(normal)
   if (!Number.isFinite(n) || n < 0) return null
   return Math.round(n * 100)
