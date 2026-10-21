@@ -77,11 +77,11 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
   resto, 14. Ordenadas por cuánto se pasaron del plazo.
 - Por qué se pierden: motivos de `oportunidades_perdidas` de los últimos 90 días.
 
-**Perdidas con motivo** (migración 0010): en la oportunidad, "Marcar como perdida" guarda el motivo
+**Perdidas con motivo** (migración 0010): en el panel del lead, "Perdida" guarda el motivo
 (precio, no es el momento, eligió a otro, dejó de responder, no encaja, otro) + detalle en
 `oportunidades_perdidas` y pone `status: lost` en GHL (si GHL falla, se borra el motivo). "Reabrir"
 vuelve a `open` y borra el motivo. El **valor** de la oportunidad (`monetaryValue`, euros) se edita
-desde la ficha de la oportunidad. Proceso comercial de Alejandro (etapas que renombra él en GHL):
+desde el panel del lead. Proceso comercial de Alejandro (etapas que renombra él en GHL):
 Nuevo lead → Contactando → Cita Agendada → No Asistió → Negociación →
 Ganado / Onboarding; "perdido" es status, no etapa.
 
@@ -90,7 +90,11 @@ Ganado / Onboarding; "perdido" es status, no etapa.
 `getDetalleLead` (`actions/leads.ts`): acciones rápidas (llamar, WhatsApp, email), etapa (se cambia
 desde ahí si está abierta), **notas internas**, motivo si se perdió, datos del lead y, si ya es
 cliente, su resumen y enlace a la ficha. Si GHL no tiene teléfono/email/empresa, se usan los de la
-ficha de cliente. "Abrir ficha completa" lleva a `/pipeline/[id]`, que también tiene las notas.
+ficha de cliente. **Es la única ficha del lead** (decisión de Alejandro, 2026-10-21: "que esa pantalla
+del panel sea la ficha completa"): también lleva "Convertir en cliente", "Perdida" con motivo, editar
+motivo, "Reabrir" y editar el valor. Se abre desde un enlace con `/pipeline?lead=ID` (Dashboard,
+ficha de cliente); `/pipeline/[id]` solo redirige ahí. El `onClose` del panel ignora el de los
+diálogos de dentro (React lo propaga).
 
 **Notas internas** (`lead_notas`, migración 0011): van **por contacto de GHL**, no por oportunidad,
 así siguen con el lead si tiene otra oportunidad o se hace cliente. Se guardan en Supabase (no en
@@ -121,7 +125,7 @@ app/
   (main)/                     Rutas protegidas (requireUser + proxy.ts)
     dashboard/                  KPIs, embudo del pipeline, este mes, oportunidades sin movimiento
     pipeline/                   Kanban GHL (drag & drop desktop, pestañas en mobile)
-    pipeline/[opportunityId]/   Detalle + mover etapa + "Convertir en cliente" (→ Ganada en GHL)
+    pipeline/[opportunityId]/   Solo redirige a /pipeline?lead=ID (la ficha del lead es el panel lateral)
     clientes/                   Lista filtrable por estado con nº de proyectos
     clientes/[clientId]/        Ficha: contacto, edición, dar de baja, contratos firmados, servicios contratados
     documentacion/              Lista por categoría + buscador; [slug]/ ver, [slug]/editar, nuevo/

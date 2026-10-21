@@ -33,8 +33,11 @@ export function PipelineBoard({
   motivos = {},
   arrastrable = true,
   resumen = 'en el pipeline',
+  leadInicial,
 }: {
   columnasIniciales: Columna[]
+  /** Lead que se abre al entrar (enlaces /pipeline?lead=ID desde el Dashboard o la ficha de cliente). */
+  leadInicial?: string
   motivos?: Motivos
   arrastrable?: boolean
   resumen?: string
@@ -52,7 +55,7 @@ export function PipelineBoard({
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null)
   const [activeStageId, setActiveStageId] = useState(columnasIniciales[0]?.stageId)
   // Lead abierto en el panel lateral; si se movió de etapa desde ahí, se refresca al cerrar.
-  const [abierta, setAbierta] = useState<string | null>(null)
+  const [abierta, setAbierta] = useState<string | null>(leadInicial ?? null)
   const movidoEnPanel = useRef(false)
 
   function moverLocal(oppId: string, fromStageId: string, toStageId: string) {
@@ -217,8 +220,15 @@ export function PipelineBoard({
         opportunityId={abierta}
         etapas={columnas.map((c) => ({ id: c.stageId, nombre: c.stageName }))}
         onMovido={movidoDesdePanel}
+        onCambio={() => router.refresh()}
         onCerrar={() => {
           setAbierta(null)
+          // Quita ?lead= de la URL para que recargar no vuelva a abrirlo.
+          const url = new URL(window.location.href)
+          if (url.searchParams.has('lead')) {
+            url.searchParams.delete('lead')
+            window.history.replaceState(null, '', url.pathname + url.search)
+          }
           if (movidoEnPanel.current) {
             movidoEnPanel.current = false
             router.refresh()

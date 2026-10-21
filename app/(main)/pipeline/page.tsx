@@ -20,9 +20,9 @@ const VISTAS = {
 } as const
 type Vista = keyof typeof VISTAS
 
-export default async function PipelinePage({ searchParams }: { searchParams: Promise<{ ver?: string }> }) {
+export default async function PipelinePage({ searchParams }: { searchParams: Promise<{ ver?: string; lead?: string }> }) {
   await requireUser()
-  const { ver } = await searchParams
+  const { ver, lead } = await searchParams
   const vista: Vista = ver && ver in VISTAS ? (ver as Vista) : 'abiertas'
 
   let pipeline: GhlPipeline | undefined
@@ -92,6 +92,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Pro
             motivos={motivos}
             // Solo lo abierto se arrastra entre etapas; lo cerrado se queda donde se cerró.
             arrastrable={vista === 'abiertas'}
+            leadInicial={lead}
             resumen={vista === 'abiertas' ? 'en el pipeline' : `en ${VISTAS[vista].label.toLowerCase()}`}
           />
         </>

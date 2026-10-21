@@ -139,7 +139,7 @@ export default async function DashboardPage() {
                 {p.sinMovimiento.slice(0, 8).map((o) => (
                   <li key={o.id}>
                     <Link
-                      href={`/pipeline/${o.id}`}
+                      href={`/pipeline?lead=${o.id}`}
                       className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-brand-300"
                     >
                       <div className="min-w-0">

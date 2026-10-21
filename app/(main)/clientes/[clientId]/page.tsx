@@ -196,7 +196,7 @@ export default async function ClientePage({
             <div className="mt-4 border-t border-hairline/[0.06] pt-4">
               {cliente.ghl_opportunity_id ? (
                 <Link
-                  href={`/pipeline/${cliente.ghl_opportunity_id}`}
+                  href={`/pipeline?ver=todas&lead=${cliente.ghl_opportunity_id}`}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-300 hover:text-brand-200"
                 >
                   <KanbanSquare size={14} />

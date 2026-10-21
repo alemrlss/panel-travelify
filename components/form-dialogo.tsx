@@ -21,6 +21,7 @@ export function FormDialogo({
   triggerTitle,
   action,
   submitLabel = 'Guardar',
+  onOk,
   children,
 }: {
   titulo: string
@@ -30,6 +31,8 @@ export function FormDialogo({
   triggerTitle?: string
   action: (prev: Resultado, formData: FormData) => Promise<Resultado>
   submitLabel?: string
+  /** Se llama cuando la acción devuelve ok (además de cerrar el diálogo). */
+  onOk?: () => void
   children: React.ReactNode
 }) {
   const [abierto, setAbierto] = useState(false)
@@ -47,7 +50,14 @@ export function FormDialogo({
         {trigger}
       </Button>
       <Dialogo abierto={abierto} onCerrar={() => setAbierto(false)} titulo={titulo}>
-        <Formulario action={action} submitLabel={submitLabel} onOk={() => setAbierto(false)}>
+        <Formulario
+          action={action}
+          submitLabel={submitLabel}
+          onOk={() => {
+            setAbierto(false)
+            onOk?.()
+          }}
+        >
           {children}
         </Formulario>
       </Dialogo>

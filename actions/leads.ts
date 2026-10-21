@@ -1,6 +1,5 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { getContact, getOpportunity } from '@/lib/ghl/client'
 import { createClient } from '@/lib/supabase/server'
@@ -8,7 +7,7 @@ import { getContactoNombre } from '@/lib/formato'
 import { recurrenteMensual } from '@/lib/servicios'
 import { ESTADOS_CLIENTE, MOTIVOS_PERDIDA } from '@/lib/catalogos'
 import type { GhlOpportunityStatus } from '@/lib/ghl/types'
-import type { LeadNota } from '@/lib/supabase/types'
+import type { LeadNota, MotivoPerdida } from '@/lib/supabase/types'
 
 export type DetalleLead = {
   oportunidad: {
@@ -41,7 +40,7 @@ export type DetalleLead = {
     servicios: number
     desde: string
   } | null
-  perdida: { motivo: string; detalle: string | null; fecha: string; etapa: string | null } | null
+  perdida: { codigo: MotivoPerdida; motivo: string; detalle: string | null; fecha: string; etapa: string | null } | null
   notas: LeadNota[]
 }
 
@@ -110,7 +109,7 @@ export async function getDetalleLead(opportunityId: string): Promise<{ detalle?:
         },
         cliente,
         perdida: perdida
-          ? { motivo: MOTIVOS_PERDIDA[perdida.motivo], detalle: perdida.detalle, fecha: perdida.fecha, etapa: perdida.etapa }
+          ? { codigo: perdida.motivo, motivo: MOTIVOS_PERDIDA[perdida.motivo], detalle: perdida.detalle, fecha: perdida.fecha, etapa: perdida.etapa }
           : null,
         notas: notas ?? [],
       },
@@ -136,7 +135,6 @@ export async function anadirNotaLead(input: {
     .select('*')
     .single()
   if (error) return { error: `No se pudo guardar la nota: ${error.message}` }
-  if (input.opportunityId) revalidatePath(`/pipeline/${input.opportunityId}`)
   return { nota: data }
 }
 
