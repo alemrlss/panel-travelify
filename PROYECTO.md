@@ -34,7 +34,11 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
   `telefono`, `email` (migración 0005). Ya no se leen de GHL en vivo. `ghl_contact_id` y
   `ghl_opportunity_id` son opcionales (null en altas manuales).
 - **Servicios contratados** = tabla `proyectos` (nombre, tipo, estado, fechas, enlace, notas). Solo se
-  renombró en la interfaz (2026-10-21).
+  renombró en la interfaz (2026-10-21). Cada uno lleva `importe_cents` (lo que se cobra de verdad, con
+  descuento si lo hay) y `cobro` (mensual / trimestral / anual / único; migración 0007).
+- **Recurrente mensual** (`lib/servicios.ts`): trimestral ÷ 3, anual ÷ 12, el pago único no cuenta.
+  Solo cuentan los servicios `en_curso`/`en_revision`; en la lista y el Dashboard, solo los de
+  clientes activos (dar de baja lo resta).
 - **Contratos firmados** por cliente: el archivo se sube desde el navegador a Storage con la sesión
   (las Server Actions limitan a 1 MB) y `registrarContrato` guarda la fila; si falla, borra el
   archivo. Ver/descargar con Signed URL de 5 min (la descarga usa el nombre original). Al eliminar
@@ -92,7 +96,8 @@ components/
   dashboard/                   KpiCard, Embudo
   form-dialogo.tsx             Botón + diálogo + formulario conectado a una Server Action
 supabase/migrations/          0001_init, 0002_contabilidad (revertida por 0004), 0003_documentacion,
-                              0004_quitar_contabilidad, 0005_clientes_datos_propios, 0006_contratos
+                              0004_quitar_contabilidad, 0005_clientes_datos_propios, 0006_contratos,
+                              0007_servicios_cobro
 supabase/seed.sql             Alta del usuario en team_members
 ```
 

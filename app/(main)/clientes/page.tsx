@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { ChevronRight, FolderKanban, Users } from 'lucide-react'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { formatFecha } from '@/lib/formato'
+import { formatEUR, formatFecha } from '@/lib/formato'
+import { recurrenteMensual } from '@/lib/servicios'
 import { ESTADOS_CLIENTE } from '@/lib/catalogos'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
@@ -32,16 +33,26 @@ export default async function ClientesPage({
   const supabase = await createClient()
   const [{ data: clientes }, { data: proyectos }] = await Promise.all([
     supabase.from('clientes').select('*').order('empresa'),
-    supabase.from('proyectos').select('cliente_id, estado'),
+    supabase.from('proyectos').select('cliente_id, estado, cobro, importe_cents'),
   ])
 
   const visibles = (clientes ?? []).filter((c) => filtro === 'todos' || c.estado === filtro)
   const conteo = (e: string) =>
     e === 'todos' ? (clientes?.length ?? 0) : (clientes?.filter((c) => c.estado === e).length ?? 0)
+  const serviciosDe = (id: string) => (proyectos ?? []).filter((p) => p.cliente_id === id)
+  const activos = (clientes ?? []).filter((c) => c.estado === 'activo')
+  const recurrenteActivos = activos.reduce((t, c) => t + recurrenteMensual(serviciosDe(c.id)), 0)
 
   return (
     <PageContainer>
       <PageHeader eyebrow="Cartera" title="Clientes" action={<NuevoCliente />} />
+
+      {activos.length > 0 && (
+        <p className="tabular -mt-2 mb-5 text-sm text-ink/55">
+          {activos.length} cliente{activos.length === 1 ? '' : 's'} activo{activos.length === 1 ? '' : 's'} ·{' '}
+          <span className="font-semibold text-ink">{formatEUR(recurrenteActivos)}/mes</span> recurrente
+        </p>
+      )}
 
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
         {FILTROS.map((f) => (
@@ -84,9 +95,9 @@ export default async function ClientesPage({
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {visibles.map((c) => {
-            const suyos = (proyectos ?? []).filter((p) => p.cliente_id === c.id)
+            const suyos = serviciosDe(c.id)
             const enCurso = suyos.filter((p) => p.estado === 'en_curso' || p.estado === 'en_revision').length
-            const entregados = suyos.filter((p) => p.estado === 'entregado').length
+            const recurrente = recurrenteMensual(suyos)
 
             return (
               <Link key={c.id} href={`/clientes/${c.id}`} className="group">
@@ -106,7 +117,7 @@ export default async function ClientesPage({
                   <dl className="mt-4 grid grid-cols-3 gap-2">
                     <Cifra label="Servicios" valor={suyos.length} />
                     <Cifra label="En curso" valor={enCurso} />
-                    <Cifra label="Entregados" valor={entregados} />
+                    <Cifra label="Recurrente" valor={recurrente ? `${formatEUR(recurrente)}/mes` : '—'} />
                   </dl>
                 </Card>
               </Link>
@@ -118,7 +129,7 @@ export default async function ClientesPage({
   )
 }
 
-function Cifra({ label, valor }: { label: string; valor: number }) {
+function Cifra({ label, valor }: { label: string; valor: number | string }) {
   return (
     <div className="rounded-xl bg-elevated px-3 py-2">
       <dt className="flex items-center gap-1 text-[11px] text-ink/40">

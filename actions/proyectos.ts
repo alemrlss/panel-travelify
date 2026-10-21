@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { errorDeZod, leerForm, type Resultado } from '@/lib/acciones'
+import { parseEurosACents } from '@/lib/formato'
 
 const fecha = z
   .string()
@@ -20,6 +21,7 @@ const proyectoSchema = z.object({
     'agente_llamadas',
     'agente_web',
     'web',
+    'mantenimiento_web',
     'seo_geo',
     'redes',
     'publicidad',
@@ -32,6 +34,20 @@ const proyectoSchema = z.object({
   estado: z.enum(['planificado', 'en_curso', 'en_revision', 'entregado', 'pausado']),
   fecha_inicio: fecha,
   fecha_entrega: fecha,
+  // Lo que se cobra (opcional). Vacío = sin importe.
+  importe: z
+    .string()
+    .optional()
+    .transform((v, ctx) => {
+      if (!v) return null
+      const cents = parseEurosACents(v)
+      if (cents === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Importe no válido' })
+        return z.NEVER
+      }
+      return cents
+    }),
+  cobro: z.enum(['mensual', 'trimestral', 'anual', 'unico']).default('unico'),
   url: z.string().url('El enlace tiene que empezar por https://').optional(),
   notas: z.string().optional(),
 })
@@ -40,10 +56,11 @@ export async function guardarProyecto(_prev: Resultado, formData: FormData): Pro
   await requireUser()
   const parsed = proyectoSchema.safeParse(leerForm(formData))
   if (!parsed.success) return errorDeZod(parsed.error)
-  const { id, ...datos } = parsed.data
+  const { id, importe, ...datos } = parsed.data
 
   const fila = {
     ...datos,
+    importe_cents: importe,
     fecha_inicio: datos.fecha_inicio ?? null,
     fecha_entrega: datos.fecha_entrega ?? null,
     url: datos.url ?? null,

@@ -6,6 +6,7 @@ export type TipoProyecto =
   | 'agente_llamadas'
   | 'agente_web'
   | 'web'
+  | 'mantenimiento_web'
   | 'seo_geo'
   | 'redes'
   | 'publicidad'
@@ -15,6 +16,7 @@ export type TipoProyecto =
   | 'reactivacion'
   | 'otro'
 export type EstadoProyecto = 'planificado' | 'en_curso' | 'en_revision' | 'entregado' | 'pausado'
+export type TipoCobro = 'mensual' | 'trimestral' | 'anual' | 'unico'
 export type CategoriaDoc = 'procesos' | 'tecnico' | 'ventas' | 'clientes' | 'herramientas' | 'otros'
 
 export type TeamMember = {
@@ -50,6 +52,9 @@ export type Proyecto = {
   estado: EstadoProyecto
   fecha_inicio: string | null
   fecha_entrega: string | null
+  // Lo que se cobra de verdad (con descuento si lo hay), en céntimos.
+  importe_cents: number | null
+  cobro: TipoCobro
   url: string | null
   notas: string | null
   created_at: string

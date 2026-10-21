@@ -6,6 +6,7 @@ import {
   Euro,
   Filter,
   KanbanSquare,
+  Repeat,
   Target,
   UserPlus,
   Users,
@@ -13,6 +14,7 @@ import {
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { DIAS_SIN_MOVIMIENTO, getResumenPipeline } from '@/lib/metricas'
+import { recurrenteMensual } from '@/lib/servicios'
 import { formatEUR, inicioDeMes, nombreMes } from '@/lib/formato'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
@@ -29,11 +31,14 @@ export default async function DashboardPage() {
   const mesActual = inicioDeMes(0)
 
   // GHL va aparte: si falla, las cifras de clientes cargan igual.
-  const [p, { data: clientes }] = await Promise.all([
+  const [p, { data: clientes }, { data: servicios }] = await Promise.all([
     getResumenPipeline().catch(() => null),
     supabase.from('clientes').select('id, estado, created_at'),
+    supabase.from('proyectos').select('cliente_id, estado, cobro, importe_cents'),
   ])
-  const activos = (clientes ?? []).filter((c) => c.estado === 'activo').length
+  const idsActivos = new Set((clientes ?? []).filter((c) => c.estado === 'activo').map((c) => c.id))
+  const activos = idsActivos.size
+  const recurrente = recurrenteMensual((servicios ?? []).filter((s) => idsActivos.has(s.cliente_id)))
   const clientesNuevosMes = (clientes ?? []).filter((c) => c.created_at.slice(0, 10) >= mesActual).length
 
   return (
@@ -55,8 +60,14 @@ export default async function DashboardPage() {
 
       {!p && <div className="mb-4"><Aviso>No se pudo leer el pipeline en este momento.</Aviso></div>}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <KpiCard icon={<Users size={15} />} label="Clientes activos" valor={String(activos)} detalle={`${clientes?.length ?? 0} en total`} />
+        <KpiCard
+          icon={<Repeat size={15} />}
+          label="Recurrente mensual"
+          valor={formatEUR(recurrente)}
+          detalle="Servicios en curso de clientes activos"
+        />
         <KpiCard
           icon={<KanbanSquare size={15} />}
           label="Oportunidades abiertas"

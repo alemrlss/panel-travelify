@@ -12,6 +12,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  Repeat,
   Trash2,
   User,
   UserCheck,
@@ -19,8 +20,9 @@ import {
 } from 'lucide-react'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { formatFecha, waLink } from '@/lib/formato'
-import { ESTADOS_CLIENTE, ESTADOS_PROYECTO, TIPOS_PROYECTO } from '@/lib/catalogos'
+import { formatEUR, formatFecha, waLink } from '@/lib/formato'
+import { ESTADOS_CLIENTE, ESTADOS_PROYECTO, TIPOS_COBRO, TIPOS_PROYECTO } from '@/lib/catalogos'
+import { recurrenteMensual } from '@/lib/servicios'
 import { eliminarCliente, setEstadoCliente } from '@/actions/clientes'
 import { eliminarProyecto, guardarProyecto } from '@/actions/proyectos'
 import { PageContainer } from '@/components/ui/page-container'
@@ -57,6 +59,7 @@ export default async function ClientePage({
       .order('created_at', { ascending: false }),
   ])
   const deBaja = cliente.estado === 'finalizado'
+  const recurrente = recurrenteMensual(proyectos ?? [])
 
   return (
     <PageContainer>
@@ -192,6 +195,16 @@ export default async function ClientePage({
             {!proyectos?.length ? (
               <EstadoVacio icon={<FolderKanban size={20} />} titulo="Sin servicios contratados todavía" />
             ) : (
+              <>
+              {recurrente > 0 && (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-brand-500/25 bg-brand-600/[0.07] px-3 py-2.5">
+                  <span className="flex items-center gap-2 text-sm text-ink/70">
+                    <Repeat size={15} className="text-brand-300" />
+                    Recurrente mensual
+                  </span>
+                  <span className="tabular text-base font-bold text-ink">{formatEUR(recurrente)}/mes</span>
+                </div>
+              )}
               <ul className="space-y-2">
                 {proyectos.map((p) => (
                   <li key={p.id} className="rounded-xl border border-hairline/[0.06] bg-elevated p-3">
@@ -200,7 +213,17 @@ export default async function ClientePage({
                         <p className="truncate text-sm font-semibold text-ink">{p.nombre}</p>
                         <p className="text-xs text-ink/45">{TIPOS_PROYECTO[p.tipo]}</p>
                       </div>
-                      <Badge tone={ESTADOS_PROYECTO[p.estado].tone}>{ESTADOS_PROYECTO[p.estado].label}</Badge>
+                      <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                        <Badge tone={ESTADOS_PROYECTO[p.estado].tone}>{ESTADOS_PROYECTO[p.estado].label}</Badge>
+                        {p.importe_cents != null && (
+                          <span className="tabular text-sm font-bold text-ink">
+                            {formatEUR(p.importe_cents)}
+                            <span className="text-xs font-medium text-ink/45">
+                              {p.cobro === 'unico' ? ' · pago único' : TIPOS_COBRO[p.cobro].sufijo}
+                            </span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                       <p className="text-xs text-ink/40">
@@ -244,6 +267,7 @@ export default async function ClientePage({
                   </li>
                 ))}
               </ul>
+              </>
             )}
           </Card>
         </div>

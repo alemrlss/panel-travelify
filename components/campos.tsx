@@ -1,5 +1,6 @@
 import { Campo, Input, Select, Textarea } from '@/components/ui/input'
-import { ESTADOS_PROYECTO, TIPOS_PROYECTO, opciones } from '@/lib/catalogos'
+import { ESTADOS_PROYECTO, TIPOS_COBRO, TIPOS_PROYECTO, opciones } from '@/lib/catalogos'
+import { centsAEurosInput } from '@/lib/formato'
 import type { Cliente, Proyecto } from '@/lib/supabase/types'
 
 // Grupos de campos de los formularios (sin hooks: se renderizan desde Server
@@ -12,8 +13,11 @@ export function CamposProyecto({ clienteId, proyecto }: { clienteId: string; pro
       <input type="hidden" name="cliente_id" value={clienteId} />
       {proyecto && <input type="hidden" name="id" value={proyecto.id} />}
       <Campo label="Nombre del servicio">
-        <Input name="nombre" required defaultValue={proyecto?.nombre} placeholder="Agente WhatsApp v1" />
+        <Input name="nombre" required defaultValue={proyecto?.nombre} placeholder="Gestión de redes · Instagram y TikTok" />
       </Campo>
+      <p className="-mt-2 text-xs text-ink/40">
+        Pon lo que le cobras de verdad, con el descuento ya aplicado si lo tiene.
+      </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo label="Tipo de servicio">
           <Select name="tipo" defaultValue={proyecto?.tipo ?? 'agente_whatsapp'}>
@@ -27,6 +31,23 @@ export function CamposProyecto({ clienteId, proyecto }: { clienteId: string; pro
         <Campo label="Estado">
           <Select name="estado" defaultValue={proyecto?.estado ?? 'planificado'}>
             {opciones(ESTADOS_PROYECTO).map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </Campo>
+        <Campo label="Importe (€)">
+          <Input
+            name="importe"
+            inputMode="decimal"
+            defaultValue={proyecto?.importe_cents != null ? centsAEurosInput(proyecto.importe_cents) : ''}
+            placeholder="350,00"
+          />
+        </Campo>
+        <Campo label="Cobro">
+          <Select name="cobro" defaultValue={proyecto?.cobro ?? 'mensual'}>
+            {opciones(TIPOS_COBRO).map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
