@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition, type DragEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CalendarPlus, History, Inbox, Mail, Phone } from 'lucide-react'
+import { CalendarPlus, History, Inbox, Mail, Phone, ThumbsDown } from 'lucide-react'
 import { moveOpportunityStage } from '@/actions/pipeline'
 import { formatEUR, formatFechaHora, getContactoNombre } from '@/lib/formato'
 import { Card } from '@/components/ui/card'
@@ -26,7 +26,19 @@ function sumaValor(opps: GhlOpportunity[]) {
   return opps.reduce((t, o) => t + (o.monetaryValue ?? 0), 0) * 100
 }
 
-export function PipelineBoard({ columnasIniciales }: { columnasIniciales: Columna[] }) {
+export type Motivos = Record<string, { motivo: string; detalle: string | null }>
+
+export function PipelineBoard({
+  columnasIniciales,
+  motivos = {},
+  arrastrable = true,
+  resumen = 'en el pipeline',
+}: {
+  columnasIniciales: Columna[]
+  motivos?: Motivos
+  arrastrable?: boolean
+  resumen?: string
+}) {
   const router = useRouter()
   const [columnas, setColumnas] = useState(columnasIniciales)
   // `columnasIniciales` solo se usa como valor inicial de useState — sin este
@@ -78,8 +90,7 @@ export function PipelineBoard({ columnasIniciales }: { columnasIniciales: Column
     <div>
       <p className="mb-4 text-sm text-ink/50">
         <span className="font-semibold text-ink">{totalOpps}</span> oportunidades ·{' '}
-        <span className="tabular font-semibold text-ink">{formatEUR(totalAbierto)}</span> en el
-        pipeline
+        <span className="tabular font-semibold text-ink">{formatEUR(totalAbierto)}</span> {resumen}
       </p>
 
       {/* Vista mobile: una etapa a la vez, sin drag (no funciona en touch) */}
@@ -117,6 +128,7 @@ export function PipelineBoard({ columnasIniciales }: { columnasIniciales: Column
             <OportunidadCard
               key={opp.id}
               opp={opp}
+              motivo={motivos[opp.id]}
               draggable={false}
               onDragStart={() => {}}
               onDragEnd={() => {}}
@@ -138,6 +150,7 @@ export function PipelineBoard({ columnasIniciales }: { columnasIniciales: Column
             <div
               key={col.stageId}
               onDragOver={(e: DragEvent) => {
+                if (!arrastrable) return
                 e.preventDefault()
                 if (dragOverStageId !== col.stageId) setDragOverStageId(col.stageId)
               }}
@@ -166,7 +179,7 @@ export function PipelineBoard({ columnasIniciales }: { columnasIniciales: Column
               </div>
               {col.opportunities.length === 0 && (
                 <p className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-hairline/10 text-xs text-ink/30">
-                  Arrastra aquí
+                  {arrastrable ? 'Arrastra aquí' : 'Ninguna'}
                 </p>
               )}
               <div className="space-y-2">
@@ -174,6 +187,8 @@ export function PipelineBoard({ columnasIniciales }: { columnasIniciales: Column
                   <OportunidadCard
                     key={opp.id}
                     opp={opp}
+                    motivo={motivos[opp.id]}
+                    draggable={arrastrable}
                     onDragStart={() => setDragging({ oppId: opp.id, fromStageId: col.stageId })}
                     onDragEnd={() => {
                       setDragging(null)
@@ -198,11 +213,13 @@ const ESTADO_OPP: Record<string, { label: string; tone: 'success' | 'danger' | '
 
 function OportunidadCard({
   opp,
+  motivo,
   draggable = true,
   onDragStart,
   onDragEnd,
 }: {
   opp: GhlOpportunity
+  motivo?: Motivos[string]
   draggable?: boolean
   onDragStart: () => void
   onDragEnd: () => void
@@ -238,6 +255,19 @@ function OportunidadCard({
           {estado && <Badge tone={estado.tone}>{estado.label}</Badge>}
         </div>
       </div>
+
+      {opp.status === 'lost' && (
+        <Link
+          href={`/pipeline/${opp.id}`}
+          className="block rounded-lg border border-red-500/15 bg-red-500/[0.06] px-2.5 py-2 text-xs"
+        >
+          <span className="flex items-center gap-1.5 font-semibold text-red-300">
+            <ThumbsDown size={12} />
+            {motivo?.motivo ?? 'Sin motivo: apúntalo'}
+          </span>
+          {motivo?.detalle && <span className="mt-1 line-clamp-2 block text-ink/60">{motivo.detalle}</span>}
+        </Link>
+      )}
 
       <div className="min-w-0 space-y-1 text-xs text-ink/55">
         <p className="flex items-center gap-1.5 truncate">

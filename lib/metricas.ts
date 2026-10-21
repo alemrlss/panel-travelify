@@ -10,7 +10,7 @@ const DIA = 24 * 60 * 60 * 1000
  */
 export const PLAZOS_POR_ETAPA: { patron: RegExp; dias: number; etiqueta: string }[] = [
   { patron: /nuevo|prospecto/i, dias: 2, etiqueta: 'Nuevo lead: 2 días' },
-  { patron: /sin respuesta|contactad/i, dias: 3, etiqueta: 'Contactado: 3 días' },
+  { patron: /sin respuesta|contact/i, dias: 3, etiqueta: 'Contactando: 3 días' },
   // Antes que /cita/: "No asistió a la cita" también la contiene.
   { patron: /no asisti/i, dias: 0, etiqueta: 'No asistió: al momento' },
   { patron: /cita/i, dias: 7, etiqueta: 'Cita agendada: 7 días' },

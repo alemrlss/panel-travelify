@@ -25,7 +25,11 @@ const perdidaSchema = z.object({
   detalle: z.string().max(500).optional(),
 })
 
-/** Status "lost" en GHL + el motivo en Supabase (para saber por qué se pierden las ventas). */
+/**
+ * Status "lost" en GHL + el motivo en Supabase (para saber por qué se pierden las ventas).
+ * Si ya estaba perdida (marcada desde GHL o antes), solo apunta o corrige el motivo y
+ * conserva la fecha y la etapa en que se perdió.
+ */
 export async function marcarPerdida(_prev: Resultado, formData: FormData): Promise<Resultado> {
   await requireUser()
   const parsed = perdidaSchema.safeParse(leerForm(formData))
@@ -34,27 +38,44 @@ export async function marcarPerdida(_prev: Resultado, formData: FormData): Promi
 
   let nombre = id
   let etapa: string | null = null
+  let yaPerdida = false
+  let fechaPerdida = hoyISO()
   try {
     const [opp, pipeline] = await Promise.all([getOpportunity(id), getPipelineStages()])
     if (!opp) return { error: 'Oportunidad no encontrada' }
     nombre = opp.name || id
     etapa = pipeline?.stages.find((s) => s.id === opp.pipelineStageId)?.name ?? null
+    yaPerdida = opp.status === 'lost'
+    if (yaPerdida && opp.lastStatusChangeAt) fechaPerdida = opp.lastStatusChangeAt.slice(0, 10)
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'No se pudo leer la oportunidad' }
   }
 
-  // Primero el motivo: si GHL falla después, se borra y no queda nada a medias.
   const supabase = await createClient()
-  const { error } = await supabase
+  const { data: previa } = await supabase
     .from('oportunidades_perdidas')
-    .upsert({ ghl_opportunity_id: id, nombre, etapa, motivo, detalle: detalle ?? null, fecha: hoyISO() })
+    .select('fecha, etapa')
+    .eq('ghl_opportunity_id', id)
+    .maybeSingle()
+
+  // Primero el motivo: si GHL falla después, se borra y no queda nada a medias.
+  const { error } = await supabase.from('oportunidades_perdidas').upsert({
+    ghl_opportunity_id: id,
+    nombre,
+    etapa: previa?.etapa ?? etapa,
+    motivo,
+    detalle: detalle ?? null,
+    fecha: previa?.fecha ?? fechaPerdida,
+  })
   if (error) return { error: `No se pudo guardar el motivo: ${error.message}` }
 
-  try {
-    await actualizarOportunidad(id, { status: 'lost' })
-  } catch (e) {
-    await supabase.from('oportunidades_perdidas').delete().eq('ghl_opportunity_id', id)
-    return { error: e instanceof Error ? e.message : 'No se pudo marcar como perdida' }
+  if (!yaPerdida) {
+    try {
+      await actualizarOportunidad(id, { status: 'lost' })
+    } catch (e) {
+      await supabase.from('oportunidades_perdidas').delete().eq('ghl_opportunity_id', id)
+      return { error: e instanceof Error ? e.message : 'No se pudo marcar como perdida' }
+    }
   }
 
   revalidatePath('/', 'layout')

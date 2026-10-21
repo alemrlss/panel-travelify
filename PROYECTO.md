@@ -72,7 +72,7 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 - Embudo: abiertas por etapa, con nº y valor.
 - Este mes: oportunidades nuevas (`createdAt`), ganadas y perdidas (`lastStatusChangeAt`), y valor ganado.
 - Sin movimiento: abiertas que pasaron el **plazo de su etapa** sin cambiar (`lastStageChangeAt`).
-  `PLAZOS_POR_ETAPA` reconoce la etapa por el nombre: nuevo lead/prospecto 2 días, contactado 3,
+  `PLAZOS_POR_ETAPA` reconoce la etapa por el nombre: nuevo lead/prospecto 2 días, contactando 3,
   no asistió 0 (avisa siempre: hay que reactivarle), cita 7, negociación/seguimiento/propuesta 7; el
   resto, 14. Ordenadas por cuánto se pasaron del plazo.
 - Por qué se pierden: motivos de `oportunidades_perdidas` de los últimos 90 días.
@@ -82,8 +82,14 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 `oportunidades_perdidas` y pone `status: lost` en GHL (si GHL falla, se borra el motivo). "Reabrir"
 vuelve a `open` y borra el motivo. El **valor** de la oportunidad (`monetaryValue`, euros) se edita
 desde la ficha de la oportunidad. Proceso comercial de Alejandro (etapas que renombra él en GHL):
-Nuevo lead → Contactado (sin respuesta) → Cita agendada → No asistió → Negociación / Seguimiento →
+Nuevo lead → Contactando → Cita Agendada → No Asistió → Negociación →
 Ganado / Onboarding; "perdido" es status, no etapa.
+
+**Lo perdido no se borra nunca** (pedido de Alejandro: "que quede todo siempre en el CRM"). El
+pipeline tiene filtro Abiertas (por defecto) / Ganadas / Perdidas / Todas (`?ver=`); cada oportunidad
+sigue en la etapa donde se cerró y solo las abiertas se arrastran. Las perdidas muestran su motivo en
+la tarjeta. Si se marcó perdida fuera del panel, la ficha avisa y permite "Apuntar motivo" (y luego
+"Editar motivo"): `marcarPerdida` no toca GHL si ya estaba `lost` y conserva fecha y etapa.
 
 De Supabase salen los clientes activos y los nuevos del mes. Si GHL falla, las cifras de clientes cargan igual. A pedido de Alejandro, el Dashboard no muestra proyectos ni documentación.
 

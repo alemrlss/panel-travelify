@@ -218,26 +218,7 @@ export default async function OportunidadPage({
                   action={marcarPerdida}
                   submitLabel="Marcar como perdida"
                 >
-                  <input type="hidden" name="id" value={opportunity.id} />
-                  <Campo label="Motivo" htmlFor="motivo-perdida">
-                    <Select id="motivo-perdida" name="motivo" required defaultValue="">
-                      <option value="" disabled>
-                        Elige el motivo
-                      </option>
-                      {opciones(MOTIVOS_PERDIDA).map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Campo>
-                  <Campo label="Detalle (opcional)" htmlFor="detalle-perdida">
-                    <Textarea
-                      id="detalle-perdida"
-                      name="detalle"
-                      placeholder="Qué te dijo, qué le pareció caro, cuándo volver a intentarlo…"
-                    />
-                  </Campo>
+                  <CamposPerdida id={opportunity.id} />
                 </FormDialogo>
               </Card>
             )}
@@ -255,12 +236,30 @@ export default async function OportunidadPage({
                     {perdida.detalle && <p className="mt-2 whitespace-pre-line text-ink/70">{perdida.detalle}</p>}
                   </div>
                 ) : (
-                  <p className="mb-4 text-sm text-ink/55">Sin motivo apuntado (se marcó fuera del panel).</p>
+                  <p className="mb-4 text-sm text-amber-300">
+                    Sin motivo apuntado (se marcó fuera del panel). Apúntalo para que quede documentada.
+                  </p>
                 )}
-                <BotonAccion action={reabrirOportunidad.bind(null, opportunity.id)} variant="secondary" size="md">
-                  <RotateCcw size={16} />
-                  Reabrir oportunidad
-                </BotonAccion>
+                <div className="flex flex-wrap gap-2">
+                  <FormDialogo
+                    titulo={perdida ? 'Editar motivo' : 'Apuntar motivo'}
+                    trigger={
+                      <>
+                        <Pencil size={16} />
+                        {perdida ? 'Editar motivo' : 'Apuntar motivo'}
+                      </>
+                    }
+                    triggerVariant={perdida ? 'secondary' : 'primary'}
+                    action={marcarPerdida}
+                    submitLabel="Guardar motivo"
+                  >
+                    <CamposPerdida id={opportunity.id} perdida={perdida} />
+                  </FormDialogo>
+                  <BotonAccion action={reabrirOportunidad.bind(null, opportunity.id)} variant="ghost" size="md">
+                    <RotateCcw size={16} />
+                    Reabrir
+                  </BotonAccion>
+                </div>
               </Card>
             )}
 
@@ -319,5 +318,33 @@ export default async function OportunidadPage({
         </div>
       )}
     </PageContainer>
+  )
+}
+
+function CamposPerdida({ id, perdida }: { id: string; perdida?: OportunidadPerdida | null }) {
+  return (
+    <>
+      <input type="hidden" name="id" value={id} />
+      <Campo label="Motivo" htmlFor="motivo-perdida">
+        <Select id="motivo-perdida" name="motivo" required defaultValue={perdida?.motivo ?? ''}>
+          <option value="" disabled>
+            Elige el motivo
+          </option>
+          {opciones(MOTIVOS_PERDIDA).map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      </Campo>
+      <Campo label="Detalle (opcional)" htmlFor="detalle-perdida">
+        <Textarea
+          id="detalle-perdida"
+          name="detalle"
+          defaultValue={perdida?.detalle ?? ''}
+          placeholder="Qué te dijo, qué le pareció caro, cuándo volver a intentarlo…"
+        />
+      </Campo>
+    </>
   )
 }
