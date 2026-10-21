@@ -1,6 +1,7 @@
 import type { Tone } from '@/components/ui/badge'
 import type {
   EstadoCliente,
+  MotivoPerdida,
   TipoCobro,
   TipoProyecto,
 } from '@/lib/supabase/types'
@@ -47,6 +48,15 @@ export const TIPOS_COBRO: Record<TipoCobro, { label: string; sufijo: string }> =
   trimestral: { label: 'Trimestral', sufijo: '/trimestre' },
   anual: { label: 'Anual', sufijo: '/año' },
   unico: { label: 'Pago único', sufijo: '' },
+}
+
+export const MOTIVOS_PERDIDA: Record<MotivoPerdida, string> = {
+  precio: 'Precio',
+  no_es_el_momento: 'No es el momento',
+  eligio_a_otro: 'Eligió a otro',
+  no_responde: 'Dejó de responder',
+  no_encaja: 'No encaja (no es mi cliente)',
+  otro: 'Otro',
 }
 
 export function opciones<T extends string>(

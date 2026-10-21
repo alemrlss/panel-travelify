@@ -87,6 +87,11 @@ export function diasDesde(fecha: string, hoy = hoyISO()) {
   return Math.round((Date.parse(hoy) - Date.parse(fecha)) / 86_400_000)
 }
 
+/** Fecha YYYY-MM-DD de hace `n` días (Madrid). */
+export function haceDias(n: number, hoy = hoyISO()) {
+  return new Date(Date.parse(hoy) - n * 86_400_000).toISOString().slice(0, 10)
+}
+
 /** "octubre de 2026" → "Octubre de 2026" (solo la primera letra). */
 export function capitalizar(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)

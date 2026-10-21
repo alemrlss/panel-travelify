@@ -113,6 +113,17 @@ export async function updateOpportunityStage(
   })
 }
 
+/** Cambia el status (open/lost…) y/o el valor en euros de una oportunidad. */
+export async function actualizarOportunidad(
+  opportunityId: string,
+  cambios: { status?: GhlOpportunityStatus; monetaryValue?: number }
+): Promise<void> {
+  await ghlFetch(`/opportunities/${opportunityId}`, {
+    method: 'PUT',
+    body: JSON.stringify(cambios),
+  })
+}
+
 export async function getContact(contactId: string): Promise<GhlContact | undefined> {
   const data = await ghlFetch<{ contact: GhlContact }>(`/contacts/${contactId}`)
   return data.contact

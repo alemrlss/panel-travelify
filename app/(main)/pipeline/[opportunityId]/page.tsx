@@ -6,7 +6,10 @@ import {
   Euro,
   Mail,
   MessageCircle,
+  Pencil,
   Phone,
+  RotateCcw,
+  ThumbsDown,
   User,
   UserCheck,
   UserPlus,
@@ -15,16 +18,19 @@ import { requireUser } from '@/lib/auth'
 import { getContact, getOpportunity, getPipelineStages } from '@/lib/ghl/client'
 import type { GhlContact, GhlOpportunity, GhlPipeline } from '@/lib/ghl/types'
 import { createClient } from '@/lib/supabase/server'
-import { formatEUR, getContactoNombre, waLink } from '@/lib/formato'
-import { moveOpportunityStage } from '@/actions/pipeline'
+import type { OportunidadPerdida } from '@/lib/supabase/types'
+import { MOTIVOS_PERDIDA, opciones } from '@/lib/catalogos'
+import { formatEUR, formatFecha, getContactoNombre, waLink } from '@/lib/formato'
+import { guardarValorOportunidad, marcarPerdida, moveOpportunityStage, reabrirOportunidad } from '@/actions/pipeline'
 import { convertirEnCliente } from '@/actions/clientes'
 import { FormDialogo } from '@/components/form-dialogo'
+import { BotonAccion } from '@/components/boton-accion'
 import { CamposCliente } from '@/components/campos'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
 import { Aviso, Card, CardTitle } from '@/components/ui/card'
 import { Button, buttonBase, buttonSizes, buttonVariants } from '@/components/ui/button'
-import { Select } from '@/components/ui/input'
+import { Campo, Input, Select, Textarea } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Dato } from '@/components/dato'
 import { clsx } from '@/lib/clsx'
@@ -60,14 +66,15 @@ export default async function OportunidadPage({
   }
 
   let clienteId: string | null = null
+  let perdida: OportunidadPerdida | null = null
   if (opportunity) {
     const supabase = await createClient()
-    const { data } = await supabase
-      .from('clientes')
-      .select('id')
-      .eq('ghl_contact_id', opportunity.contactId)
-      .maybeSingle()
+    const [{ data }, { data: motivo }] = await Promise.all([
+      supabase.from('clientes').select('id').eq('ghl_contact_id', opportunity.contactId).maybeSingle(),
+      supabase.from('oportunidades_perdidas').select('*').eq('ghl_opportunity_id', opportunity.id).maybeSingle(),
+    ])
     clienteId = data?.id ?? null
+    perdida = motivo
   }
 
   const nombre = getContactoNombre(contact)
@@ -138,7 +145,31 @@ export default async function OportunidadPage({
                 )}
               </Dato>
               <Dato icon={<Euro size={16} />} label="Valor">
-                {opportunity.monetaryValue ? formatEUR(opportunity.monetaryValue * 100) : '—'}
+                <span className="flex items-center gap-2">
+                  {opportunity.monetaryValue ? formatEUR(opportunity.monetaryValue * 100) : '—'}
+                  <FormDialogo
+                    titulo="Valor de la oportunidad"
+                    trigger={<Pencil size={14} />}
+                    triggerVariant="ghost"
+                    triggerSize="icon"
+                    triggerTitle="Editar valor"
+                    action={guardarValorOportunidad}
+                  >
+                    <input type="hidden" name="id" value={opportunity.id} />
+                    <Campo label="Valor (€)" htmlFor="valor-oportunidad">
+                      <Input
+                        id="valor-oportunidad"
+                        name="valor"
+                        inputMode="decimal"
+                        placeholder="Ej.: 450"
+                        defaultValue={opportunity.monetaryValue ? String(opportunity.monetaryValue).replace('.', ',') : ''}
+                      />
+                    </Campo>
+                    <p className="text-xs text-ink/45">
+                      Lo que le has propuesto. Suma en &quot;Valor en pipeline&quot; del Dashboard.
+                    </p>
+                  </FormDialogo>
+                </span>
               </Dato>
             </dl>
           </Card>
@@ -168,6 +199,70 @@ export default async function OportunidadPage({
                 </Button>
               </form>
             </Card>
+
+            {opportunity.status === 'open' && !clienteId && (
+              <Card>
+                <CardTitle icon={<ThumbsDown size={17} />}>¿No sale?</CardTitle>
+                <p className="mb-4 text-sm text-ink/55">
+                  Márcala como perdida y apunta el motivo: en el Dashboard verás por qué se te escapan las
+                  ventas.
+                </p>
+                <FormDialogo
+                  titulo="Marcar como perdida"
+                  trigger={
+                    <>
+                      <ThumbsDown size={16} />
+                      Marcar como perdida
+                    </>
+                  }
+                  action={marcarPerdida}
+                  submitLabel="Marcar como perdida"
+                >
+                  <input type="hidden" name="id" value={opportunity.id} />
+                  <Campo label="Motivo" htmlFor="motivo-perdida">
+                    <Select id="motivo-perdida" name="motivo" required defaultValue="">
+                      <option value="" disabled>
+                        Elige el motivo
+                      </option>
+                      {opciones(MOTIVOS_PERDIDA).map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </Campo>
+                  <Campo label="Detalle (opcional)" htmlFor="detalle-perdida">
+                    <Textarea
+                      id="detalle-perdida"
+                      name="detalle"
+                      placeholder="Qué te dijo, qué le pareció caro, cuándo volver a intentarlo…"
+                    />
+                  </Campo>
+                </FormDialogo>
+              </Card>
+            )}
+
+            {opportunity.status === 'lost' && (
+              <Card className="border-red-500/20">
+                <CardTitle icon={<ThumbsDown size={17} />}>Perdida</CardTitle>
+                {perdida ? (
+                  <div className="mb-4 text-sm">
+                    <p className="font-semibold text-ink">{MOTIVOS_PERDIDA[perdida.motivo]}</p>
+                    <p className="text-xs text-ink/45">
+                      {formatFecha(perdida.fecha)}
+                      {perdida.etapa && ` · estaba en ${perdida.etapa}`}
+                    </p>
+                    {perdida.detalle && <p className="mt-2 whitespace-pre-line text-ink/70">{perdida.detalle}</p>}
+                  </div>
+                ) : (
+                  <p className="mb-4 text-sm text-ink/55">Sin motivo apuntado (se marcó fuera del panel).</p>
+                )}
+                <BotonAccion action={reabrirOportunidad.bind(null, opportunity.id)} variant="secondary" size="md">
+                  <RotateCcw size={16} />
+                  Reabrir oportunidad
+                </BotonAccion>
+              </Card>
+            )}
 
             <Card className={clsx(!clienteId && 'border-brand-500/30')}>
               <CardTitle icon={clienteId ? <UserCheck size={17} /> : <UserPlus size={17} />}>

@@ -3,8 +3,25 @@ import { getPipelineStages, searchOpportunitiesAll } from '@/lib/ghl/client'
 import { getContactoNombre, hoyISO, inicioDeMes } from '@/lib/formato'
 
 const DIA = 24 * 60 * 60 * 1000
-/** Días sin cambiar de etapa a partir de los cuales una oportunidad abierta se marca "sin movimiento". */
+/**
+ * Días que puede pasar una oportunidad abierta en cada etapa antes de marcarse
+ * "sin movimiento". Se reconoce la etapa por su nombre en GHL; la primera que
+ * coincide manda. "No asistió" avisa desde el primer día: hay que reactivarle.
+ */
+export const PLAZOS_POR_ETAPA: { patron: RegExp; dias: number; etiqueta: string }[] = [
+  { patron: /nuevo|prospecto/i, dias: 2, etiqueta: 'Nuevo lead: 2 días' },
+  { patron: /sin respuesta|contactad/i, dias: 3, etiqueta: 'Contactado: 3 días' },
+  // Antes que /cita/: "No asistió a la cita" también la contiene.
+  { patron: /no asisti/i, dias: 0, etiqueta: 'No asistió: al momento' },
+  { patron: /cita/i, dias: 7, etiqueta: 'Cita agendada: 7 días' },
+  { patron: /negociaci|seguimiento|propuesta/i, dias: 7, etiqueta: 'Negociación: 7 días' },
+]
+/** Plazo de las etapas que no coinciden con ninguna de arriba. */
 export const DIAS_SIN_MOVIMIENTO = 14
+
+export function plazoEtapa(nombre: string) {
+  return PLAZOS_POR_ETAPA.find((p) => p.patron.test(nombre))?.dias ?? DIAS_SIN_MOVIMIENTO
+}
 
 /**
  * Todo lo que el Dashboard mide del pipeline de GHL, en una sola lectura:
@@ -39,16 +56,22 @@ export async function getResumenPipeline() {
   const sinMovimiento = abiertas
     .map((o) => {
       const desde = o.lastStageChangeAt ?? o.updatedAt ?? o.createdAt
+      const etapa = etapas.find((s) => s.id === o.pipelineStageId)?.name ?? '—'
+      const dias = Math.floor((ahora - Date.parse(desde)) / DIA)
+      const plazo = plazoEtapa(etapa)
       return {
         id: o.id,
         nombre: o.name || getContactoNombre(o.contact),
-        etapa: etapas.find((s) => s.id === o.pipelineStageId)?.name ?? '—',
+        etapa,
         valor: o.monetaryValue ?? 0,
-        dias: Math.floor((ahora - Date.parse(desde)) / DIA),
+        dias,
+        plazo,
+        // Lo que más urge: cuánto se ha pasado del plazo, en proporción.
+        retraso: (dias - plazo) / Math.max(plazo, 1),
       }
     })
-    .filter((o) => o.dias >= DIAS_SIN_MOVIMIENTO)
-    .sort((a, b) => b.dias - a.dias)
+    .filter((o) => o.dias >= o.plazo)
+    .sort((a, b) => b.retraso - a.retraso)
 
   return {
     pipelineNombre: pipeline?.name ?? 'Pipeline',

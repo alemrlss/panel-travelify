@@ -33,22 +33,22 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 - El cliente tiene **datos propios** en Supabase: `empresa` (obligatoria), `responsable`,
   `telefono`, `email` (migración 0005). Ya no se leen de GHL en vivo. `ghl_contact_id` y
   `ghl_opportunity_id` son opcionales (null en altas manuales).
-- **Servicios contratados** = tabla  (en la UI se renombró). Cada uno: nombre, tipo,
-   (lo que se cobra de verdad, con descuento),  (mensual/trimestral/anual/único),
-  , enlace, notas. **Estados según el cobro** (, migración 0009):
-  - Recurrente:  →  ("De baja"), reactivable. Sin fecha de fin.
-  - Pago único:  →  →  →  (o  = "Cancelado").
-  -  = fecha real del estado actual; cada cambio va por  (fecha +
+- **Servicios contratados** = tabla `proyectos` (en la UI se renombró). Cada uno: nombre, tipo,
+  `importe_cents` (lo que se cobra de verdad, con descuento), `cobro` (mensual/trimestral/anual/único),
+  `fecha_inicio`, enlace, notas. **Estados según el cobro** (`lib/servicios.ts`, migración 0009):
+  - Recurrente: `en_curso` → `baja` ("De baja"), reactivable. Sin fecha de fin.
+  - Pago único: `planificado` → `en_curso` → `en_revision` → `entregado` (o `baja` = "Cancelado").
+  - `estado_desde` = fecha real del estado actual; cada cambio va por `cambiarEstadoServicio` (fecha +
     motivo) y queda en el historial. Sin "entrega prevista" (decisión de Alejandro).
 - **Dinero del cliente** (resumen de la ficha): recurrente mensual = recurrentes en curso (trimestral
   ÷ 3, anual ÷ 12); valor anual = × 12; pagos únicos = **entregados** (+ "en marcha" los no entregados
-  ni cancelados); antigüedad desde . En la lista y el Dashboard, solo
+  ni cancelados); antigüedad desde `cliente_desde`. En la lista y el Dashboard, solo
   clientes activos.
-- **Historial** (, migración 0008): alta, vinculación, baja/reactivación, servicios
+- **Historial** (`cliente_eventos`, migración 0008): alta, vinculación, baja/reactivación, servicios
   (alta, cambio de precio/nombre/tipo, estado, eliminado), contratos (alta con validez, baja,
-  eliminado) y notas manuales. Se escribe desde las Server Actions (); un fallo
+  eliminado) y notas manuales. Se escribe desde las Server Actions (`lib/eventos.ts`); un fallo
   al apuntar no rompe la acción.
-- **Vincular con el pipeline** (): cliente creado a mano → elegir su
+- **Vincular con el pipeline** (`vincularOportunidad`): cliente creado a mano → elegir su
   oportunidad abierta → queda Ganada en GHL y se guardan los ids.
 - **Contratos firmados** por cliente: el archivo se sube desde el navegador a Storage con la sesión
   (las Server Actions limitan a 1 MB) y `registrarContrato` guarda la fila; si falla, borra el
@@ -60,7 +60,8 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
   estado `finalizado`; conserva datos y contratos.
 - `monetaryValue` de GHL viene en **euros**.
 - **Sin módulo de facturación ni contabilidad** (decisión de Alejandro, 2026-10-21): las facturas
-  las lleva en Google Drive. El panel no maneja importes salvo el valor de las oportunidades de GHL.
+  las lleva en Google Drive. Los únicos importes son el precio de cada servicio contratado y el
+  valor de las oportunidades de GHL.
 
 ## Métricas (Dashboard)
 
@@ -70,7 +71,19 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 - Tasa de cierre: won / (won + lost) de los últimos 90 días, por `lastStatusChangeAt`.
 - Embudo: abiertas por etapa, con nº y valor.
 - Este mes: oportunidades nuevas (`createdAt`), ganadas y perdidas (`lastStatusChangeAt`), y valor ganado.
-- Sin movimiento: abiertas con 14 días o más sin cambiar de etapa (`lastStageChangeAt`).
+- Sin movimiento: abiertas que pasaron el **plazo de su etapa** sin cambiar (`lastStageChangeAt`).
+  `PLAZOS_POR_ETAPA` reconoce la etapa por el nombre: nuevo lead/prospecto 2 días, contactado 3,
+  no asistió 0 (avisa siempre: hay que reactivarle), cita 7, negociación/seguimiento/propuesta 7; el
+  resto, 14. Ordenadas por cuánto se pasaron del plazo.
+- Por qué se pierden: motivos de `oportunidades_perdidas` de los últimos 90 días.
+
+**Perdidas con motivo** (migración 0010): en la oportunidad, "Marcar como perdida" guarda el motivo
+(precio, no es el momento, eligió a otro, dejó de responder, no encaja, otro) + detalle en
+`oportunidades_perdidas` y pone `status: lost` en GHL (si GHL falla, se borra el motivo). "Reabrir"
+vuelve a `open` y borra el motivo. El **valor** de la oportunidad (`monetaryValue`, euros) se edita
+desde la ficha de la oportunidad. Proceso comercial de Alejandro (etapas que renombra él en GHL):
+Nuevo lead → Contactado (sin respuesta) → Cita agendada → No asistió → Negociación / Seguimiento →
+Ganado / Onboarding; "perdido" es status, no etapa.
 
 De Supabase salen los clientes activos y los nuevos del mes. Si GHL falla, las cifras de clientes cargan igual. A pedido de Alejandro, el Dashboard no muestra proyectos ni documentación.
 
@@ -111,7 +124,7 @@ components/
 supabase/migrations/          0001_init, 0002_contabilidad (revertida por 0004), 0003_documentacion,
                               0004_quitar_contabilidad, 0005_clientes_datos_propios, 0006_contratos,
                               0007_servicios_cobro, 0008_historial_contratos_estados,
-                              0009_estados_por_tipo_de_cobro
+                              0009_estados_por_tipo_de_cobro, 0010_oportunidades_perdidas
 supabase/seed.sql             Alta del usuario en team_members
 ```
 

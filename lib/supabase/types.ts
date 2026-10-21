@@ -103,6 +103,18 @@ export type ClienteEvento = {
   created_at: string
 }
 
+export type MotivoPerdida = 'precio' | 'no_es_el_momento' | 'eligio_a_otro' | 'no_responde' | 'no_encaja' | 'otro'
+
+export type OportunidadPerdida = {
+  ghl_opportunity_id: string
+  nombre: string
+  etapa: string | null
+  motivo: MotivoPerdida
+  detalle: string | null
+  fecha: string
+  created_at: string
+}
+
 export type Documento = {
   id: string
   slug: string
@@ -142,6 +154,7 @@ export interface Database {
       >
       cliente_eventos: Tabla<ClienteEvento, ClienteEvento, 'cliente_id' | 'tipo' | 'descripcion'>
       documentos: Tabla<Documento, DocumentoEscribible, 'slug' | 'titulo'>
+      oportunidades_perdidas: Tabla<OportunidadPerdida, OportunidadPerdida, 'ghl_opportunity_id' | 'nombre' | 'motivo'>
     }
     Views: Record<string, never>
     Functions: Record<string, never>
