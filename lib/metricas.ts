@@ -1,9 +1,6 @@
 import 'server-only'
 import { searchOpportunitiesAll } from '@/lib/ghl/client'
 
-// Las métricas de dinero viven en lib/contabilidad.ts (facturas) y
-// lib/facturacion-clientes.ts. Aquí solo queda lo que sale del pipeline de GHL.
-
 /** won / (won + lost) de las oportunidades del pipeline tocadas en los últimos 90 días. */
 export async function getTasaCierre() {
   const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()

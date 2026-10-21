@@ -82,6 +82,11 @@ export function nombreMes(inicio: string, largo = false): string {
   })
 }
 
+/** Días transcurridos desde una fecha YYYY-MM-DD hasta hoy (Madrid). */
+export function diasDesde(fecha: string, hoy = hoyISO()) {
+  return Math.round((Date.parse(hoy) - Date.parse(fecha)) / 86_400_000)
+}
+
 /** "octubre de 2026" → "Octubre de 2026" (solo la primera letra). */
 export function capitalizar(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)

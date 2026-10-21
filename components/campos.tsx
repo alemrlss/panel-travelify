@@ -1,7 +1,6 @@
 import { Campo, Input, Select, Textarea } from '@/components/ui/input'
 import { ESTADOS_PROYECTO, TIPOS_PROYECTO, opciones } from '@/lib/catalogos'
-import { hoyISO } from '@/lib/formato'
-import type { Factura, Proyecto } from '@/lib/supabase/types'
+import type { Proyecto } from '@/lib/supabase/types'
 
 // Grupos de campos de los formularios (sin hooks: se renderizan desde Server
 // Components y viajan como children de FormDialogo). Los name coinciden con los
@@ -46,24 +45,6 @@ export function CamposProyecto({ clienteId, proyecto }: { clienteId: string; pro
       </Campo>
       <Campo label="Notas">
         <Textarea name="notas" defaultValue={proyecto?.notas ?? ''} />
-      </Campo>
-    </>
-  )
-}
-
-export function CamposMarcarPagada({
-  factura,
-}: {
-  factura: Pick<Factura, 'id' | 'numero' | 'concepto' | 'tipo'>
-}) {
-  return (
-    <>
-      <input type="hidden" name="id" value={factura.id} />
-      <p className="text-sm text-ink/60">
-        {factura.numero} · {factura.concepto}
-      </p>
-      <Campo label={factura.tipo === 'venta' ? 'Fecha de cobro' : 'Fecha de pago'}>
-        <Input name="fecha_pago" type="date" required defaultValue={hoyISO()} />
       </Campo>
     </>
   )

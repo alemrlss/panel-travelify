@@ -3,27 +3,19 @@ import { notFound } from 'next/navigation'
 import {
   ArrowLeft,
   Building2,
-  CalendarClock,
   ExternalLink,
-  FilePlus,
-  FileText,
   FolderKanban,
   Mail,
   MessageCircle,
   Pencil,
   Phone,
   Plus,
-  Receipt,
-  Repeat,
   Trash2,
-  TrendingUp,
   User,
 } from 'lucide-react'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { getContact } from '@/lib/ghl/client'
-import { getFacturas, getOpcionesFactura } from '@/lib/contabilidad'
-import { facturacionPorCliente } from '@/lib/facturacion-clientes'
 import { formatEUR, formatFecha, getContactoNombre, waLink } from '@/lib/formato'
 import { ESTADOS_CLIENTE, ESTADOS_PROYECTO, TIPOS_PROYECTO } from '@/lib/catalogos'
 import { eliminarCliente } from '@/actions/clientes'
@@ -38,10 +30,6 @@ import { FormDialogo } from '@/components/form-dialogo'
 import { BotonAccion } from '@/components/boton-accion'
 import { CamposProyecto } from '@/components/campos'
 import { FormCliente } from '@/components/clientes/form-cliente'
-import { Referencia } from '@/components/clientes/referencia'
-import { ListaFacturas } from '@/components/contabilidad/lista-facturas'
-import { NuevaFactura } from '@/components/contabilidad/nueva-factura'
-import { clsx } from '@/lib/clsx'
 
 export default async function ClientePage({
   params,
@@ -56,14 +44,10 @@ export default async function ClientePage({
   const { data: cliente } = await supabase.from('clientes').select('*').eq('id', clientId).maybeSingle()
   if (!cliente) notFound()
 
-  const [{ data: proyectos }, facturas, opciones, facturacion, contacto] = await Promise.all([
+  const [{ data: proyectos }, contacto] = await Promise.all([
     supabase.from('proyectos').select('*').eq('cliente_id', clientId).order('created_at'),
-    getFacturas({ tipo: 'venta', clienteId: clientId }),
-    getOpcionesFactura(),
-    facturacionPorCliente([cliente]),
     getContact(cliente.ghl_contact_id).catch(() => null),
   ])
-  const f = facturacion.get(cliente.id)!
 
   return (
     <PageContainer>
@@ -79,23 +63,6 @@ export default async function ClientePage({
         title={cliente.nombre_cache}
         action={<Badge tone={ESTADOS_CLIENTE[cliente.estado].tone}>{ESTADOS_CLIENTE[cliente.estado].label}</Badge>}
       />
-
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Resumen icon={<Receipt size={14} />} label="Este mes" valor={formatEUR(f.esteMes)} nota={<Referencia f={f} />} />
-        <Resumen icon={<Repeat size={14} />} label="Media mensual (12 m)" valor={formatEUR(f.mediaMensual)} />
-        <Resumen
-          icon={<TrendingUp size={14} />}
-          label="Facturado total"
-          valor={formatEUR(f.total)}
-          nota={`${f.nFacturas} factura${f.nFacturas === 1 ? '' : 's'}`}
-        />
-        <Resumen
-          icon={<CalendarClock size={14} />}
-          label="Pendiente de cobro"
-          valor={formatEUR(f.pendiente)}
-          alerta={f.pendiente > 0}
-        />
-      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {/* Columna izquierda: contacto + datos */}
@@ -153,7 +120,7 @@ export default async function ClientePage({
             <div className="mt-5 border-t border-hairline/[0.06] pt-4">
               <BotonAccion
                 action={eliminarCliente.bind(null, cliente.id)}
-                confirmar={`¿Eliminar a ${cliente.nombre_cache}? Se borran sus proyectos. Sus facturas se conservan en Contabilidad y el contacto en tu CRM no se toca.`}
+                confirmar={`¿Eliminar a ${cliente.nombre_cache}? Se borran también sus proyectos. El contacto en tu CRM no se toca.`}
                 variant="danger"
               >
                 <Trash2 size={14} />
@@ -163,34 +130,8 @@ export default async function ClientePage({
           </Card>
         </div>
 
-        {/* Columna derecha: facturas y proyectos */}
+        {/* Columna derecha: proyectos */}
         <div className="space-y-4 lg:col-span-3">
-          <Card>
-            <CardTitle
-              icon={<FileText size={17} />}
-              action={
-                <NuevaFactura
-                  tipo="venta"
-                  opciones={opciones}
-                  clienteFijo={{ id: cliente.id, nombre_cache: cliente.nombre_cache }}
-                  trigger={<><Plus size={15} />Factura</>}
-                  triggerSize="sm"
-                />
-              }
-            >
-              Facturas de venta
-            </CardTitle>
-            {facturas.length === 0 ? (
-              <EstadoVacio
-                icon={<FilePlus size={20} />}
-                titulo="Sin facturas todavía"
-                texto="Registra lo que le facturas, con los descuentos ya aplicados: así sabes cuánto te factura de verdad."
-              />
-            ) : (
-              <ListaFacturas facturas={facturas} opciones={opciones} ocultarContraparte />
-            )}
-          </Card>
-
           <Card>
             <CardTitle
               icon={<FolderKanban size={17} />}
@@ -268,37 +209,5 @@ export default async function ClientePage({
         </div>
       </div>
     </PageContainer>
-  )
-}
-
-function Resumen({
-  icon,
-  label,
-  valor,
-  nota,
-  alerta = false,
-}: {
-  icon: React.ReactNode
-  label: string
-  valor: string
-  nota?: React.ReactNode
-  alerta?: boolean
-}) {
-  return (
-    <div
-      className={clsx(
-        'rounded-2xl border bg-card px-3 py-3 sm:px-4',
-        alerta ? 'border-amber-400/30' : 'border-hairline/[0.07]'
-      )}
-    >
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-ink/45">
-        <span className={alerta ? 'text-amber-300' : 'text-brand-300'}>{icon}</span>
-        {label}
-      </p>
-      <p className={clsx('tabular mt-1 text-base font-bold sm:text-xl', alerta ? 'text-amber-300' : 'text-ink')}>
-        {valor}
-      </p>
-      {nota && <p className="mt-0.5 text-[11px] text-ink/45">{nota}</p>}
-    </div>
   )
 }

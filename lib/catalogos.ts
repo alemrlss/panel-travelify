@@ -1,9 +1,7 @@
 import type { Tone } from '@/components/ui/badge'
 import type {
   EstadoCliente,
-  EstadoFactura,
   EstadoProyecto,
-  TipoFactura,
   TipoProyecto,
 } from '@/lib/supabase/types'
 
@@ -37,20 +35,6 @@ export const ESTADOS_PROYECTO: Record<EstadoProyecto, { label: string; tone: Ton
   en_revision: { label: 'En revisión', tone: 'info' },
   entregado: { label: 'Entregado', tone: 'success' },
   pausado: { label: 'Pausado', tone: 'warning' },
-}
-
-export const TIPOS_FACTURA: Record<TipoFactura, string> = {
-  venta: 'Venta',
-  compra: 'Compra',
-}
-
-/** En ventas "pagada" significa cobrada: la etiqueta cambia según el tipo. */
-export function estadoFactura(
-  tipo: TipoFactura,
-  estado: EstadoFactura
-): { label: string; tone: Tone } {
-  if (estado === 'pagada') return { label: tipo === 'venta' ? 'Cobrada' : 'Pagada', tone: 'success' }
-  return { label: tipo === 'venta' ? 'Pendiente de cobro' : 'Pendiente de pago', tone: 'warning' }
 }
 
 export function opciones<T extends string>(
