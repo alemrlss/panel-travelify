@@ -15,7 +15,22 @@ export type TipoProyecto =
   | 'reputacion'
   | 'reactivacion'
   | 'otro'
-export type EstadoProyecto = 'planificado' | 'en_curso' | 'en_revision' | 'entregado' | 'pausado'
+// Recurrente: en_curso | baja. Pago único: planificado → en_curso → en_revision → entregado (o baja).
+export type EstadoProyecto = 'planificado' | 'en_curso' | 'en_revision' | 'entregado' | 'baja'
+export type EstadoContrato = 'vigente' | 'baja'
+export type TipoEvento =
+  | 'cliente_alta'
+  | 'cliente_baja'
+  | 'cliente_reactivado'
+  | 'cliente_vinculado'
+  | 'servicio_alta'
+  | 'servicio_estado'
+  | 'servicio_cambio'
+  | 'servicio_eliminado'
+  | 'contrato_alta'
+  | 'contrato_baja'
+  | 'contrato_eliminado'
+  | 'nota'
 export type TipoCobro = 'mensual' | 'trimestral' | 'anual' | 'unico'
 export type CategoriaDoc = 'procesos' | 'tecnico' | 'ventas' | 'clientes' | 'herramientas' | 'otros'
 
@@ -50,8 +65,9 @@ export type Proyecto = {
   nombre: string
   tipo: TipoProyecto
   estado: EstadoProyecto
+  // Desde cuándo está en el estado actual; el historial guarda todos los cambios.
+  estado_desde: string
   fecha_inicio: string | null
-  fecha_entrega: string | null
   // Lo que se cobra de verdad (con descuento si lo hay), en céntimos.
   importe_cents: number | null
   cobro: TipoCobro
@@ -68,6 +84,22 @@ export type Contrato = {
   archivo_path: string
   mime: string
   tamano_bytes: number
+  // Validez del contrato y baja (estado "baja" + fecha_baja).
+  fecha_inicio: string
+  fecha_fin: string
+  estado: EstadoContrato
+  fecha_baja: string | null
+  created_at: string
+}
+
+export type ClienteEvento = {
+  id: string
+  cliente_id: string
+  tipo: TipoEvento
+  descripcion: string
+  fecha: string // cuándo pasó (puede ser anterior al registro)
+  servicio_id: string | null
+  contrato_id: string | null
   created_at: string
 }
 
@@ -103,7 +135,12 @@ export interface Database {
       team_members: Tabla<TeamMember, TeamMember, 'id' | 'email' | 'full_name'>
       clientes: Tabla<Cliente, Cliente, 'empresa'>
       proyectos: Tabla<Proyecto, Proyecto, 'cliente_id' | 'nombre' | 'tipo'>
-      contratos: Tabla<Contrato, Contrato, 'cliente_id' | 'nombre' | 'archivo_path' | 'mime' | 'tamano_bytes'>
+      contratos: Tabla<
+        Contrato,
+        Contrato,
+        'cliente_id' | 'nombre' | 'archivo_path' | 'mime' | 'tamano_bytes' | 'fecha_inicio' | 'fecha_fin'
+      >
+      cliente_eventos: Tabla<ClienteEvento, ClienteEvento, 'cliente_id' | 'tipo' | 'descripcion'>
       documentos: Tabla<Documento, DocumentoEscribible, 'slug' | 'titulo'>
     }
     Views: Record<string, never>

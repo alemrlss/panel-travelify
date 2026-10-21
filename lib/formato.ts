@@ -107,6 +107,22 @@ export function getContactoNombre(contact?: {
   return persona ?? contact.companyName ?? '—'
 }
 
+/** wa.me exige el prefijo del país: un número español de 9 cifras sin prefijo pasa a 34XXXXXXXXX. */
 export function waLink(phone: string): string {
-  return `https://wa.me/${phone.replace(/[^\d]/g, '')}`
+  let digitos = phone.replace(/[^\d]/g, '').replace(/^00/, '')
+  if (digitos.length === 9 && /^[6789]/.test(digitos)) digitos = `34${digitos}`
+  return `https://wa.me/${digitos}`
+}
+
+/** "1 año y 2 meses", "3 meses", "menos de un mes" desde una fecha YYYY-MM-DD. */
+export function antiguedad(desde: string, hoy = hoyISO()): string {
+  const [y1, m1, d1] = desde.split('-').map(Number)
+  const [y2, m2, d2] = hoy.split('-').map(Number)
+  const meses = Math.max(0, (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0))
+  if (meses === 0) return 'menos de un mes'
+  const años = Math.floor(meses / 12)
+  const resto = meses % 12
+  const txtA = años ? `${años} año${años === 1 ? '' : 's'}` : ''
+  const txtM = resto ? `${resto} mes${resto === 1 ? '' : 'es'}` : ''
+  return [txtA, txtM].filter(Boolean).join(' y ')
 }

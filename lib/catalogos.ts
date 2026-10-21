@@ -1,7 +1,6 @@
 import type { Tone } from '@/components/ui/badge'
 import type {
   EstadoCliente,
-  EstadoProyecto,
   TipoCobro,
   TipoProyecto,
 } from '@/lib/supabase/types'
@@ -31,12 +30,16 @@ export const TIPOS_PROYECTO: Record<TipoProyecto, string> = {
   otro: 'Otro',
 }
 
-export const ESTADOS_PROYECTO: Record<EstadoProyecto, { label: string; tone: Tone }> = {
-  planificado: { label: 'Planificado', tone: 'neutral' },
-  en_curso: { label: 'En curso', tone: 'brand' },
-  en_revision: { label: 'En revisión', tone: 'info' },
-  entregado: { label: 'Entregado', tone: 'success' },
-  pausado: { label: 'Pausado', tone: 'warning' },
+/** Estado visible de un contrato: de baja, vencido, por vencer (30 días) o vigente. */
+export function estadoContrato(
+  c: { estado: 'vigente' | 'baja'; fecha_fin: string },
+  hoy: string
+): { label: string; tone: Tone } {
+  if (c.estado === 'baja') return { label: 'De baja', tone: 'neutral' }
+  if (c.fecha_fin < hoy) return { label: 'Vencido', tone: 'danger' }
+  const dias = Math.round((Date.parse(c.fecha_fin) - Date.parse(hoy)) / 86_400_000)
+  if (dias <= 30) return { label: dias === 0 ? 'Vence hoy' : `Vence en ${dias} días`, tone: 'warning' }
+  return { label: 'Vigente', tone: 'success' }
 }
 
 export const TIPOS_COBRO: Record<TipoCobro, { label: string; sufijo: string }> = {

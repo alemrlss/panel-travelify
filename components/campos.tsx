@@ -1,75 +1,12 @@
-import { Campo, Input, Select, Textarea } from '@/components/ui/input'
-import { ESTADOS_PROYECTO, TIPOS_COBRO, TIPOS_PROYECTO, opciones } from '@/lib/catalogos'
-import { centsAEurosInput } from '@/lib/formato'
+import { Campo, Input, Select } from '@/components/ui/input'
+import { hoyISO } from '@/lib/formato'
+import { estadoServicio, estadosPosibles, siguienteEstado } from '@/lib/servicios'
 import type { Cliente, Proyecto } from '@/lib/supabase/types'
 
 // Grupos de campos de los formularios (sin hooks: se renderizan desde Server
 // Components y viajan como children de FormDialogo). Los name coinciden con los
-// schemas zod de actions/.
-
-export function CamposProyecto({ clienteId, proyecto }: { clienteId: string; proyecto?: Proyecto }) {
-  return (
-    <>
-      <input type="hidden" name="cliente_id" value={clienteId} />
-      {proyecto && <input type="hidden" name="id" value={proyecto.id} />}
-      <Campo label="Nombre del servicio">
-        <Input name="nombre" required defaultValue={proyecto?.nombre} placeholder="Gestión de redes · Instagram y TikTok" />
-      </Campo>
-      <p className="-mt-2 text-xs text-ink/40">
-        Pon lo que le cobras de verdad, con el descuento ya aplicado si lo tiene.
-      </p>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Campo label="Tipo de servicio">
-          <Select name="tipo" defaultValue={proyecto?.tipo ?? 'agente_whatsapp'}>
-            {opciones(TIPOS_PROYECTO).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </Campo>
-        <Campo label="Estado">
-          <Select name="estado" defaultValue={proyecto?.estado ?? 'planificado'}>
-            {opciones(ESTADOS_PROYECTO).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </Campo>
-        <Campo label="Importe (€)">
-          <Input
-            name="importe"
-            inputMode="decimal"
-            defaultValue={proyecto?.importe_cents != null ? centsAEurosInput(proyecto.importe_cents) : ''}
-            placeholder="350,00"
-          />
-        </Campo>
-        <Campo label="Cobro">
-          <Select name="cobro" defaultValue={proyecto?.cobro ?? 'mensual'}>
-            {opciones(TIPOS_COBRO).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </Campo>
-        <Campo label="Inicio">
-          <Input name="fecha_inicio" type="date" defaultValue={proyecto?.fecha_inicio ?? ''} />
-        </Campo>
-        <Campo label="Entrega / fin previsto">
-          <Input name="fecha_entrega" type="date" defaultValue={proyecto?.fecha_entrega ?? ''} />
-        </Campo>
-      </div>
-      <Campo label="Enlace (web, repo, panel…)">
-        <Input name="url" type="url" defaultValue={proyecto?.url ?? ''} placeholder="https://" />
-      </Campo>
-      <Campo label="Notas">
-        <Textarea name="notas" defaultValue={proyecto?.notas ?? ''} />
-      </Campo>
-    </>
-  )
-}
+// schemas zod de actions/. El de servicio está en components/clientes/campos-servicio.tsx
+// (es de cliente: el estado inicial depende del tipo de cobro elegido).
 
 /** Datos propios del cliente: empresa y responsable obligatorios, teléfono y email opcionales. */
 export function CamposCliente({
@@ -92,5 +29,39 @@ export function CamposCliente({
         <Input name="email" type="email" defaultValue={cliente?.email ?? ''} placeholder="contacto@empresa.com" />
       </Campo>
     </div>
+  )
+}
+
+/**
+ * Cambio de estado de un servicio, con la fecha real en que pasó y un motivo
+ * opcional. Solo ofrece los estados válidos para su tipo de cobro y propone el
+ * siguiente paso lógico.
+ */
+export function CamposEstadoServicio({ servicio }: { servicio: Pick<Proyecto, 'id' | 'nombre' | 'estado' | 'cobro'> }) {
+  const opciones = estadosPosibles(servicio.cobro).filter((e) => e !== servicio.estado)
+  return (
+    <>
+      <input type="hidden" name="id" value={servicio.id} />
+      <p className="text-sm text-ink/60">
+        «{servicio.nombre}» · ahora: {estadoServicio(servicio.estado, servicio.cobro).label}
+      </p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Campo label="Nuevo estado" htmlFor={`estado-${servicio.id}`}>
+          <Select id={`estado-${servicio.id}`} name="estado" defaultValue={siguienteEstado(servicio.estado, servicio.cobro)}>
+            {opciones.map((e) => (
+              <option key={e} value={e}>
+                {estadoServicio(e, servicio.cobro).label}
+              </option>
+            ))}
+          </Select>
+        </Campo>
+        <Campo label="Fecha" htmlFor={`fecha-${servicio.id}`}>
+          <Input id={`fecha-${servicio.id}`} name="fecha" type="date" required defaultValue={hoyISO()} />
+        </Campo>
+      </div>
+      <Campo label="Motivo o comentario (opcional)" htmlFor={`motivo-${servicio.id}`}>
+        <Input id={`motivo-${servicio.id}`} name="motivo" placeholder="Ej.: el cliente lo aprobó, recorte de presupuesto…" />
+      </Campo>
+    </>
   )
 }

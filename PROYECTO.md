@@ -33,15 +33,28 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 - El cliente tiene **datos propios** en Supabase: `empresa` (obligatoria), `responsable`,
   `telefono`, `email` (migración 0005). Ya no se leen de GHL en vivo. `ghl_contact_id` y
   `ghl_opportunity_id` son opcionales (null en altas manuales).
-- **Servicios contratados** = tabla `proyectos` (nombre, tipo, estado, fechas, enlace, notas). Solo se
-  renombró en la interfaz (2026-10-21). Cada uno lleva `importe_cents` (lo que se cobra de verdad, con
-  descuento si lo hay) y `cobro` (mensual / trimestral / anual / único; migración 0007).
-- **Recurrente mensual** (`lib/servicios.ts`): trimestral ÷ 3, anual ÷ 12, el pago único no cuenta.
-  Solo cuentan los servicios `en_curso`/`en_revision`; en la lista y el Dashboard, solo los de
-  clientes activos (dar de baja lo resta).
+- **Servicios contratados** = tabla  (en la UI se renombró). Cada uno: nombre, tipo,
+   (lo que se cobra de verdad, con descuento),  (mensual/trimestral/anual/único),
+  , enlace, notas. **Estados según el cobro** (, migración 0009):
+  - Recurrente:  →  ("De baja"), reactivable. Sin fecha de fin.
+  - Pago único:  →  →  →  (o  = "Cancelado").
+  -  = fecha real del estado actual; cada cambio va por  (fecha +
+    motivo) y queda en el historial. Sin "entrega prevista" (decisión de Alejandro).
+- **Dinero del cliente** (resumen de la ficha): recurrente mensual = recurrentes en curso (trimestral
+  ÷ 3, anual ÷ 12); valor anual = × 12; pagos únicos = **entregados** (+ "en marcha" los no entregados
+  ni cancelados); antigüedad desde . En la lista y el Dashboard, solo
+  clientes activos.
+- **Historial** (, migración 0008): alta, vinculación, baja/reactivación, servicios
+  (alta, cambio de precio/nombre/tipo, estado, eliminado), contratos (alta con validez, baja,
+  eliminado) y notas manuales. Se escribe desde las Server Actions (); un fallo
+  al apuntar no rompe la acción.
+- **Vincular con el pipeline** (): cliente creado a mano → elegir su
+  oportunidad abierta → queda Ganada en GHL y se guardan los ids.
 - **Contratos firmados** por cliente: el archivo se sube desde el navegador a Storage con la sesión
   (las Server Actions limitan a 1 MB) y `registrarContrato` guarda la fila; si falla, borra el
-  archivo. Ver/descargar con Signed URL de 5 min (la descarga usa el nombre original). Al eliminar
+  archivo. Al subir se exige validez (`fecha_inicio`–`fecha_fin`); estado visible Vigente / Vence en N
+  días (≤30) / Vencido / De baja (`darDeBajaContrato` con fecha y motivo). Ver/descargar con Signed URL
+  de 5 min (la descarga usa el nombre original). Al eliminar
   un cliente se borran antes sus archivos (la cascada de la tabla no toca Storage).
 - **Dar de baja / Reactivar** desde la cabecera de la ficha (`setEstadoCliente`): "De baja" es el
   estado `finalizado`; conserva datos y contratos.
@@ -97,7 +110,8 @@ components/
   form-dialogo.tsx             Botón + diálogo + formulario conectado a una Server Action
 supabase/migrations/          0001_init, 0002_contabilidad (revertida por 0004), 0003_documentacion,
                               0004_quitar_contabilidad, 0005_clientes_datos_propios, 0006_contratos,
-                              0007_servicios_cobro
+                              0007_servicios_cobro, 0008_historial_contratos_estados,
+                              0009_estados_por_tipo_de_cobro
 supabase/seed.sql             Alta del usuario en team_members
 ```
 

@@ -16,7 +16,6 @@ import type { EstadoCliente } from '@/lib/supabase/types'
 
 const FILTROS: { value: EstadoCliente | 'todos'; label: string }[] = [
   { value: 'activo', label: 'Activos' },
-  { value: 'pausado', label: 'Pausados' },
   { value: 'finalizado', label: 'De baja' },
   { value: 'todos', label: 'Todos' },
 ]
@@ -96,7 +95,7 @@ export default async function ClientesPage({
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {visibles.map((c) => {
             const suyos = serviciosDe(c.id)
-            const enCurso = suyos.filter((p) => p.estado === 'en_curso' || p.estado === 'en_revision').length
+            const enCurso = suyos.filter((p) => p.estado === 'en_curso').length
             const recurrente = recurrenteMensual(suyos)
 
             return (
