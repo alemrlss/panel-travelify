@@ -5,6 +5,7 @@ import {
   Building2,
   ExternalLink,
   FolderKanban,
+  KanbanSquare,
   Mail,
   MessageCircle,
   Pencil,
@@ -15,8 +16,7 @@ import {
 } from 'lucide-react'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { getContact } from '@/lib/ghl/client'
-import { formatEUR, formatFecha, getContactoNombre, waLink } from '@/lib/formato'
+import { formatFecha, waLink } from '@/lib/formato'
 import { ESTADOS_CLIENTE, ESTADOS_PROYECTO, TIPOS_PROYECTO } from '@/lib/catalogos'
 import { eliminarCliente } from '@/actions/clientes'
 import { eliminarProyecto, guardarProyecto } from '@/actions/proyectos'
@@ -44,10 +44,11 @@ export default async function ClientePage({
   const { data: cliente } = await supabase.from('clientes').select('*').eq('id', clientId).maybeSingle()
   if (!cliente) notFound()
 
-  const [{ data: proyectos }, contacto] = await Promise.all([
-    supabase.from('proyectos').select('*').eq('cliente_id', clientId).order('created_at'),
-    getContact(cliente.ghl_contact_id).catch(() => null),
-  ])
+  const { data: proyectos } = await supabase
+    .from('proyectos')
+    .select('*')
+    .eq('cliente_id', clientId)
+    .order('created_at')
 
   return (
     <PageContainer>
@@ -60,67 +61,70 @@ export default async function ClientePage({
       </Link>
       <PageHeader
         eyebrow="Cliente"
-        title={cliente.nombre_cache}
+        title={cliente.empresa}
         action={<Badge tone={ESTADOS_CLIENTE[cliente.estado].tone}>{ESTADOS_CLIENTE[cliente.estado].label}</Badge>}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        {/* Columna izquierda: contacto + datos */}
+        {/* Columna izquierda: contacto + edición */}
         <div className="space-y-4 lg:col-span-2">
           <Card>
             <CardTitle icon={<User size={17} />}>Contacto</CardTitle>
-            {contacto ? (
-              <dl className="space-y-3 text-sm">
-                <Dato icon={<User size={16} />} label="Nombre">
-                  {getContactoNombre(contacto)}
-                </Dato>
-                {contacto.companyName && (
-                  <Dato icon={<Building2 size={16} />} label="Empresa">
-                    {contacto.companyName}
-                  </Dato>
-                )}
-                <Dato icon={<Phone size={16} />} label="Teléfono">
-                  {contacto.phone ? (
-                    <span className="flex flex-wrap items-center gap-3">
-                      <a href={`tel:${contacto.phone}`} className="text-brand-300 hover:underline">
-                        {contacto.phone}
-                      </a>
-                      <a
-                        href={waLink(contacto.phone)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:underline"
-                      >
-                        <MessageCircle size={13} />
-                        WhatsApp
-                      </a>
-                    </span>
-                  ) : (
-                    '—'
-                  )}
-                </Dato>
-                <Dato icon={<Mail size={16} />} label="Email">
-                  {contacto.email ? (
-                    <a href={`mailto:${contacto.email}`} className="break-all text-brand-300 hover:underline">
-                      {contacto.email}
+            <dl className="space-y-3 text-sm">
+              <Dato icon={<Building2 size={16} />} label="Empresa">
+                {cliente.empresa}
+              </Dato>
+              <Dato icon={<User size={16} />} label="Responsable">
+                {cliente.responsable ?? '—'}
+              </Dato>
+              <Dato icon={<Phone size={16} />} label="Teléfono">
+                {cliente.telefono ? (
+                  <span className="flex flex-wrap items-center gap-3">
+                    <a href={`tel:${cliente.telefono}`} className="text-brand-300 hover:underline">
+                      {cliente.telefono}
                     </a>
-                  ) : (
-                    '—'
-                  )}
-                </Dato>
-              </dl>
-            ) : (
-              <p className="text-sm text-amber-200">No se pudieron leer los datos de contacto en este momento.</p>
+                    <a
+                      href={waLink(cliente.telefono)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:underline"
+                    >
+                      <MessageCircle size={13} />
+                      WhatsApp
+                    </a>
+                  </span>
+                ) : (
+                  '—'
+                )}
+              </Dato>
+              <Dato icon={<Mail size={16} />} label="Email">
+                {cliente.email ? (
+                  <a href={`mailto:${cliente.email}`} className="break-all text-brand-300 hover:underline">
+                    {cliente.email}
+                  </a>
+                ) : (
+                  '—'
+                )}
+              </Dato>
+            </dl>
+            {cliente.ghl_opportunity_id && (
+              <Link
+                href={`/pipeline/${cliente.ghl_opportunity_id}`}
+                className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-300 hover:text-brand-200"
+              >
+                <KanbanSquare size={14} />
+                Viene del pipeline · ver oportunidad
+              </Link>
             )}
           </Card>
 
           <Card>
-            <CardTitle icon={<Pencil size={17} />}>Datos del cliente</CardTitle>
+            <CardTitle icon={<Pencil size={17} />}>Editar cliente</CardTitle>
             <FormCliente cliente={cliente} />
             <div className="mt-5 border-t border-hairline/[0.06] pt-4">
               <BotonAccion
                 action={eliminarCliente.bind(null, cliente.id)}
-                confirmar={`¿Eliminar a ${cliente.nombre_cache}? Se borran también sus proyectos. El contacto en tu CRM no se toca.`}
+                confirmar={`¿Eliminar a ${cliente.empresa}? Se borran también sus proyectos. La oportunidad en el pipeline no se toca.`}
                 variant="danger"
               >
                 <Trash2 size={14} />

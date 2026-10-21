@@ -22,11 +22,16 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 | Dónde | Qué |
 | --- | --- |
 | **GHL** (fuente de verdad) | Prospectos, etapas, estado `open/won/lost`, valor, datos de contacto |
-| **Supabase** | `team_members`, `clientes` (contacto GHL promovido, por `ghl_contact_id`), `proyectos`, `documentos` |
+| **Supabase** | `team_members`, `clientes` (datos propios; vínculo opcional al contacto/oportunidad de GHL), `proyectos`, `documentos` |
 
-- Un **cliente** se crea explícitamente: "Convertir en cliente" desde una oportunidad del Pipeline,
-  o "Nuevo cliente" buscando un contacto de GHL. Se guarda `nombre_cache` para listar sin pedirle
-  a GHL un contacto por fila; email/teléfono se leen en vivo.
+- **Ciclo del cliente:** el lead avanza por el pipeline de GHL. En el detalle de la oportunidad,
+  "Convertir en cliente" (`convertirEnCliente`) abre un formulario con los datos del lead
+  prerrellenados; al confirmar crea el cliente en Supabase y deja la oportunidad **Ganada** en GHL
+  (`marcarOportunidadGanada`: `status: won` + etapa "Ganado…"). Si GHL falla, el alta se deshace.
+  También hay alta manual ("Nuevo cliente"). A partir de ahí el cliente vive en el módulo Clientes.
+- El cliente tiene **datos propios** en Supabase: `empresa` (obligatoria), `responsable`,
+  `telefono`, `email` (migración 0005). Ya no se leen de GHL en vivo. `ghl_contact_id` y
+  `ghl_opportunity_id` son opcionales (null en altas manuales).
 - `monetaryValue` de GHL viene en **euros**.
 - **Sin módulo de facturación ni contabilidad** (decisión de Alejandro, 2026-10-21): las facturas
   las lleva en Google Drive. El panel no maneja importes salvo el valor de las oportunidades de GHL.
@@ -60,9 +65,9 @@ app/
   (main)/                     Rutas protegidas (requireUser + proxy.ts)
     dashboard/                  KPIs, embudo del pipeline, este mes, oportunidades sin movimiento
     pipeline/                   Kanban GHL (drag & drop desktop, pestañas en mobile)
-    pipeline/[opportunityId]/   Detalle + mover etapa + "Convertir en cliente"
+    pipeline/[opportunityId]/   Detalle + mover etapa + "Convertir en cliente" (→ Ganada en GHL)
     clientes/                   Lista filtrable por estado con nº de proyectos
-    clientes/[clientId]/        Ficha: contacto GHL, datos del cliente, proyectos
+    clientes/[clientId]/        Ficha: contacto (Supabase), edición, proyectos, enlace a la oportunidad
     documentacion/              Lista por categoría + buscador; [slug]/ ver, [slug]/editar, nuevo/
     configuracion/              Cuenta, cambio de contraseña, estado de conexiones
 actions/                      Server Actions (zod + revalidatePath)
@@ -78,7 +83,7 @@ components/
   dashboard/                   KpiCard, Embudo
   form-dialogo.tsx             Botón + diálogo + formulario conectado a una Server Action
 supabase/migrations/          0001_init, 0002_contabilidad (revertida por 0004), 0003_documentacion,
-                              0004_quitar_contabilidad
+                              0004_quitar_contabilidad, 0005_clientes_datos_propios
 supabase/seed.sql             Alta del usuario en team_members
 ```
 

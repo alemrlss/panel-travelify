@@ -28,9 +28,13 @@ export type TeamMember = {
 
 export type Cliente = {
   id: string
-  ghl_contact_id: string
+  // null si se creó a mano; si viene del pipeline, el contacto y la oportunidad de GHL.
+  ghl_contact_id: string | null
   ghl_opportunity_id: string | null
-  nombre_cache: string
+  empresa: string
+  responsable: string | null
+  telefono: string | null
+  email: string | null
   estado: EstadoCliente
   fecha_inicio: string
   notas: string | null
@@ -82,7 +86,7 @@ export interface Database {
   public: {
     Tables: {
       team_members: Tabla<TeamMember, TeamMember, 'id' | 'email' | 'full_name'>
-      clientes: Tabla<Cliente, Cliente, 'ghl_contact_id' | 'nombre_cache'>
+      clientes: Tabla<Cliente, Cliente, 'empresa'>
       proyectos: Tabla<Proyecto, Proyecto, 'cliente_id' | 'nombre' | 'tipo'>
       documentos: Tabla<Documento, DocumentoEscribible, 'slug' | 'titulo'>
     }

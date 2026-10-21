@@ -31,7 +31,7 @@ export default async function ClientesPage({
 
   const supabase = await createClient()
   const [{ data: clientes }, { data: proyectos }] = await Promise.all([
-    supabase.from('clientes').select('*').order('nombre_cache'),
+    supabase.from('clientes').select('*').order('empresa'),
     supabase.from('proyectos').select('cliente_id, estado'),
   ])
 
@@ -76,7 +76,7 @@ export default async function ClientesPage({
             texto={
               clientes?.length
                 ? undefined
-                : 'Crea uno desde un contacto, o desde una oportunidad ganada en el Pipeline.'
+                : 'Lo normal es convertir un lead ganado desde el Pipeline. También puedes crearlo a mano.'
             }
             action={clientes?.length ? undefined : <NuevoCliente />}
           />
@@ -93,8 +93,10 @@ export default async function ClientesPage({
                 <Card className="h-full p-4 transition-all group-hover:border-brand-500/40 group-hover:shadow-lift sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-base font-bold text-ink">{c.nombre_cache}</p>
-                      <p className="mt-0.5 text-xs text-ink/40">Cliente desde {formatFecha(c.fecha_inicio)}</p>
+                      <p className="truncate text-base font-bold text-ink">{c.empresa}</p>
+                      <p className="mt-0.5 truncate text-xs text-ink/50">
+                        {c.responsable ?? '—'} · desde {formatFecha(c.fecha_inicio)}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1">
                       <Badge tone={ESTADOS_CLIENTE[c.estado].tone}>{ESTADOS_CLIENTE[c.estado].label}</Badge>

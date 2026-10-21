@@ -118,15 +118,18 @@ export async function getContact(contactId: string): Promise<GhlContact | undefi
   return data.contact
 }
 
-/** Buscador del diálogo "Nuevo cliente". Sin query devuelve los más recientes. */
-export async function searchContacts(query: string): Promise<GhlContact[]> {
-  const data = await ghlFetch<{ contacts: GhlContact[] }>('/contacts/search', {
-    method: 'POST',
-    body: JSON.stringify({
-      locationId: LOCATION_ID,
-      pageLimit: 20,
-      ...(query.trim() ? { query: query.trim() } : {}),
-    }),
+/**
+ * Al convertir un lead en cliente: la oportunidad pasa a status "won" y se mueve
+ * a la etapa de ganados del pipeline (la que se llame "Ganado…"; si no hay,
+ * la última). Devuelve el nombre de la etapa destino.
+ */
+export async function marcarOportunidadGanada(opportunityId: string): Promise<string | undefined> {
+  const pipeline = await getPipelineStages()
+  const etapas = (pipeline?.stages ?? []).slice().sort((a, b) => a.position - b.position)
+  const ganado = etapas.find((s) => /ganad/i.test(s.name)) ?? etapas[etapas.length - 1]
+  await ghlFetch(`/opportunities/${opportunityId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'won', ...(ganado ? { pipelineStageId: ganado.id } : {}) }),
   })
-  return data.contacts ?? []
+  return ganado?.name
 }

@@ -17,7 +17,9 @@ import type { GhlContact, GhlOpportunity, GhlPipeline } from '@/lib/ghl/types'
 import { createClient } from '@/lib/supabase/server'
 import { formatEUR, getContactoNombre, waLink } from '@/lib/formato'
 import { moveOpportunityStage } from '@/actions/pipeline'
-import { crearCliente } from '@/actions/clientes'
+import { convertirEnCliente } from '@/actions/clientes'
+import { FormDialogo } from '@/components/form-dialogo'
+import { CamposCliente } from '@/components/campos'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
 import { Aviso, Card, CardTitle } from '@/components/ui/card'
@@ -185,28 +187,36 @@ export default async function OportunidadPage({
               ) : (
                 <>
                   <p className="mb-4 text-sm text-ink/55">
-                    {opportunity.status === 'won'
-                      ? '¡Oportunidad ganada! Crea su ficha para registrar proyectos y cobros.'
-                      : 'Cuando cierres la venta, convierte este contacto en cliente.'}
+                    Cuando cierres la venta, conviértelo en cliente: se crea su ficha y la
+                    oportunidad queda como <span className="font-semibold text-emerald-300">Ganada</span> en
+                    el pipeline.
                   </p>
-                  <form
-                    action={async () => {
-                      'use server'
-                      await crearCliente({
-                        ghlContactId: opportunity.contactId,
-                        ghlOpportunityId: opportunity.id,
-                        nombre: contact?.companyName || nombre,
-                      })
-                    }}
+                  <FormDialogo
+                    titulo="Convertir en cliente"
+                    trigger={
+                      <>
+                        <UserPlus size={16} />
+                        Convertir en cliente
+                      </>
+                    }
+                    triggerVariant={opportunity.status === 'won' ? 'primary' : 'secondary'}
+                    action={convertirEnCliente}
+                    submitLabel="Crear cliente y marcar como ganada"
                   >
-                    <Button
-                      type="submit"
-                      variant={opportunity.status === 'won' ? 'primary' : 'secondary'}
-                    >
-                      <UserPlus size={16} />
-                      Convertir en cliente
-                    </Button>
-                  </form>
+                    <input type="hidden" name="ghl_contact_id" value={opportunity.contactId} />
+                    <input type="hidden" name="ghl_opportunity_id" value={opportunity.id} />
+                    <p className="text-sm text-ink/55">
+                      Revisa los datos que vienen del lead. Se guardan en la ficha del cliente.
+                    </p>
+                    <CamposCliente
+                      cliente={{
+                        empresa: contact?.companyName ?? '',
+                        responsable: nombre === '—' ? '' : nombre,
+                        telefono: contact?.phone ?? '',
+                        email: contact?.email ?? '',
+                      }}
+                    />
+                  </FormDialogo>
                 </>
               )}
             </Card>

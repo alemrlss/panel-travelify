@@ -8,6 +8,7 @@ import { ESTADOS_CLIENTE, opciones } from '@/lib/catalogos'
 import { Button } from '@/components/ui/button'
 import { Campo, Input, Select, Textarea } from '@/components/ui/input'
 import { MensajeError } from '@/components/form-dialogo'
+import { CamposCliente } from '@/components/campos'
 import type { Cliente } from '@/lib/supabase/types'
 
 export function FormCliente({ cliente }: { cliente: Cliente }) {
@@ -16,9 +17,7 @@ export function FormCliente({ cliente }: { cliente: Cliente }) {
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="id" value={cliente.id} />
-      <Campo label="Nombre en el panel">
-        <Input name="nombre_cache" required defaultValue={cliente.nombre_cache} />
-      </Campo>
+      <CamposCliente cliente={cliente} />
       <div className="grid grid-cols-2 gap-4">
         <Campo label="Estado">
           <Select name="estado" defaultValue={cliente.estado}>

@@ -5,87 +5,84 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { searchContacts } from '@/lib/ghl/client'
-import { getContactoNombre } from '@/lib/formato'
+import { marcarOportunidadGanada } from '@/lib/ghl/client'
 import { errorDeZod, leerForm, type Resultado } from '@/lib/acciones'
 
-export interface ContactoEncontrado {
-  id: string
-  nombre: string
-  detalle: string
-  clienteId: string | null
+// Datos propios del cliente (viven en Supabase, no se leen de GHL).
+const datosCliente = {
+  empresa: z.string({ required_error: 'Falta el nombre de la empresa' }).min(1, 'Falta el nombre de la empresa'),
+  responsable: z.string({ required_error: 'Falta el nombre del responsable' }).min(1, 'Falta el nombre del responsable'),
+  telefono: z.string().optional(),
+  email: z.string().email('El email no es válido').optional(),
 }
 
-export async function buscarContactos(query: string): Promise<{
-  contactos: ContactoEncontrado[]
-  error?: string
-}> {
+const nuevoSchema = z.object(datosCliente)
+
+/** Alta manual (cliente que no viene del pipeline). */
+export async function crearCliente(_prev: Resultado, formData: FormData): Promise<Resultado> {
   await requireUser()
-  try {
-    const contactos = await searchContacts(query)
-    const supabase = await createClient()
-    const { data: existentes } = await supabase
-      .from('clientes')
-      .select('id, ghl_contact_id')
-      .in(
-        'ghl_contact_id',
-        contactos.map((c) => c.id)
-      )
-    const porContacto = new Map(existentes?.map((c) => [c.ghl_contact_id, c.id]))
+  const parsed = nuevoSchema.safeParse(leerForm(formData))
+  if (!parsed.success) return errorDeZod(parsed.error)
+  const d = parsed.data
 
-    return {
-      contactos: contactos.map((c) => ({
-        id: c.id,
-        nombre: getContactoNombre(c),
-        detalle: [c.companyName, c.email, c.phone].filter(Boolean).join(' · '),
-        clienteId: porContacto.get(c.id) ?? null,
-      })),
-    }
-  } catch (e) {
-    return { contactos: [], error: e instanceof Error ? e.message : 'No se pudo buscar' }
-  }
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('clientes')
+    .insert({ ...d, telefono: d.telefono ?? null, email: d.email ?? null })
+    .select('id')
+    .single()
+  if (error || !data) return { error: `No se pudo crear el cliente: ${error?.message}` }
+
+  revalidatePath('/', 'layout')
+  redirect(`/clientes/${data.id}`)
 }
 
-const crearSchema = z.object({
-  ghlContactId: z.string().min(1),
-  ghlOpportunityId: z.string().optional(),
-  nombre: z.string().min(1, 'Falta el nombre del cliente'),
+const convertirSchema = z.object({
+  ...datosCliente,
+  ghl_contact_id: z.string().min(1),
+  ghl_opportunity_id: z.string().min(1),
 })
 
-/** Crea la ficha del cliente (o reutiliza la existente) y redirige a ella. */
-export async function crearCliente(input: z.input<typeof crearSchema>) {
+/**
+ * Lead del pipeline → cliente. Crea la ficha en Supabase y deja la oportunidad
+ * Ganada en GHL (status won + etapa "Ganado…"). Si GHL falla, se deshace el
+ * alta para no quedar a medias.
+ */
+export async function convertirEnCliente(_prev: Resultado, formData: FormData): Promise<Resultado> {
   await requireUser()
-  const datos = crearSchema.parse(input)
+  const parsed = convertirSchema.safeParse(leerForm(formData))
+  if (!parsed.success) return errorDeZod(parsed.error)
+  const d = parsed.data
   const supabase = await createClient()
 
   const { data: existente } = await supabase
     .from('clientes')
     .select('id')
-    .eq('ghl_contact_id', datos.ghlContactId)
+    .eq('ghl_contact_id', d.ghl_contact_id)
     .maybeSingle()
+  if (existente) redirect(`/clientes/${existente.id}`)
 
-  let id = existente?.id
-  if (!id) {
-    const { data, error } = await supabase
-      .from('clientes')
-      .insert({
-        ghl_contact_id: datos.ghlContactId,
-        ghl_opportunity_id: datos.ghlOpportunityId ?? null,
-        nombre_cache: datos.nombre,
-      })
-      .select('id')
-      .single()
-    if (error || !data) throw new Error(`No se pudo crear el cliente: ${error?.message}`)
-    id = data.id
+  const { data, error } = await supabase
+    .from('clientes')
+    .insert({ ...d, telefono: d.telefono ?? null, email: d.email ?? null })
+    .select('id')
+    .single()
+  if (error || !data) return { error: `No se pudo crear el cliente: ${error?.message}` }
+
+  try {
+    await marcarOportunidadGanada(d.ghl_opportunity_id)
+  } catch {
+    await supabase.from('clientes').delete().eq('id', data.id)
+    return { error: 'No se pudo marcar la oportunidad como ganada en el pipeline. No se ha creado el cliente; inténtalo de nuevo.' }
   }
 
   revalidatePath('/', 'layout')
-  redirect(`/clientes/${id}`)
+  redirect(`/clientes/${data.id}`)
 }
 
 const actualizarSchema = z.object({
   id: z.string().uuid(),
-  nombre_cache: z.string().min(1, 'El nombre no puede quedar vacío'),
+  ...datosCliente,
   estado: z.enum(['activo', 'pausado', 'finalizado']),
   fecha_inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de inicio no válida'),
   notas: z.string().optional(),
@@ -100,7 +97,12 @@ export async function actualizarCliente(_prev: Resultado, formData: FormData): P
   const supabase = await createClient()
   const { error } = await supabase
     .from('clientes')
-    .update({ ...cambios, notas: cambios.notas ?? null })
+    .update({
+      ...cambios,
+      telefono: cambios.telefono ?? null,
+      email: cambios.email ?? null,
+      notas: cambios.notas ?? null,
+    })
     .eq('id', id)
   if (error) return { error: `No se pudo guardar: ${error.message}` }
 

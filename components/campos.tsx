@@ -1,6 +1,6 @@
 import { Campo, Input, Select, Textarea } from '@/components/ui/input'
 import { ESTADOS_PROYECTO, TIPOS_PROYECTO, opciones } from '@/lib/catalogos'
-import type { Proyecto } from '@/lib/supabase/types'
+import type { Cliente, Proyecto } from '@/lib/supabase/types'
 
 // Grupos de campos de los formularios (sin hooks: se renderizan desde Server
 // Components y viajan como children de FormDialogo). Los name coinciden con los
@@ -47,5 +47,29 @@ export function CamposProyecto({ clienteId, proyecto }: { clienteId: string; pro
         <Textarea name="notas" defaultValue={proyecto?.notas ?? ''} />
       </Campo>
     </>
+  )
+}
+
+/** Datos propios del cliente: empresa y responsable obligatorios, teléfono y email opcionales. */
+export function CamposCliente({
+  cliente,
+}: {
+  cliente?: Partial<Pick<Cliente, 'empresa' | 'responsable' | 'telefono' | 'email'>>
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Campo label="Empresa">
+        <Input name="empresa" required defaultValue={cliente?.empresa ?? ''} placeholder="Nombre de la empresa" />
+      </Campo>
+      <Campo label="Responsable">
+        <Input name="responsable" required defaultValue={cliente?.responsable ?? ''} placeholder="Nombre y apellidos" />
+      </Campo>
+      <Campo label="Teléfono">
+        <Input name="telefono" type="tel" defaultValue={cliente?.telefono ?? ''} placeholder="+34 600 000 000" />
+      </Campo>
+      <Campo label="Email">
+        <Input name="email" type="email" defaultValue={cliente?.email ?? ''} placeholder="contacto@empresa.com" />
+      </Campo>
+    </div>
   )
 }
