@@ -110,9 +110,21 @@ export async function actualizarCliente(_prev: Resultado, formData: FormData): P
   return { ok: true, mensaje: 'Cambios guardados' }
 }
 
+/** Dar de baja (estado "finalizado", se muestra "De baja") o reactivar. */
+export async function setEstadoCliente(id: string, estado: 'activo' | 'finalizado') {
+  await requireUser()
+  const supabase = await createClient()
+  const { error } = await supabase.from('clientes').update({ estado }).eq('id', id)
+  if (error) throw new Error(`No se pudo cambiar el estado: ${error.message}`)
+  revalidatePath('/', 'layout')
+}
+
 export async function eliminarCliente(id: string) {
   await requireUser()
   const supabase = await createClient()
+  // Los archivos de sus contratos no se borran solos con la cascada de la tabla.
+  const { data: contratos } = await supabase.from('contratos').select('archivo_path').eq('cliente_id', id)
+  if (contratos?.length) await supabase.storage.from('contratos').remove(contratos.map((c) => c.archivo_path))
   const { error } = await supabase.from('clientes').delete().eq('id', id)
   if (error) throw new Error(`No se pudo eliminar el cliente: ${error.message}`)
   revalidatePath('/', 'layout')

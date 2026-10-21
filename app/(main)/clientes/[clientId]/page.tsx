@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Building2,
   ExternalLink,
+  FileSignature,
   FolderKanban,
   KanbanSquare,
   Mail,
@@ -13,12 +14,14 @@ import {
   Plus,
   Trash2,
   User,
+  UserCheck,
+  UserX,
 } from 'lucide-react'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { formatFecha, waLink } from '@/lib/formato'
 import { ESTADOS_CLIENTE, ESTADOS_PROYECTO, TIPOS_PROYECTO } from '@/lib/catalogos'
-import { eliminarCliente } from '@/actions/clientes'
+import { eliminarCliente, setEstadoCliente } from '@/actions/clientes'
 import { eliminarProyecto, guardarProyecto } from '@/actions/proyectos'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
@@ -30,6 +33,7 @@ import { FormDialogo } from '@/components/form-dialogo'
 import { BotonAccion } from '@/components/boton-accion'
 import { CamposProyecto } from '@/components/campos'
 import { FormCliente } from '@/components/clientes/form-cliente'
+import { Contratos } from '@/components/clientes/contratos'
 
 export default async function ClientePage({
   params,
@@ -44,11 +48,15 @@ export default async function ClientePage({
   const { data: cliente } = await supabase.from('clientes').select('*').eq('id', clientId).maybeSingle()
   if (!cliente) notFound()
 
-  const { data: proyectos } = await supabase
-    .from('proyectos')
-    .select('*')
-    .eq('cliente_id', clientId)
-    .order('created_at')
+  const [{ data: proyectos }, { data: contratos }] = await Promise.all([
+    supabase.from('proyectos').select('*').eq('cliente_id', clientId).order('created_at'),
+    supabase
+      .from('contratos')
+      .select('*')
+      .eq('cliente_id', clientId)
+      .order('created_at', { ascending: false }),
+  ])
+  const deBaja = cliente.estado === 'finalizado'
 
   return (
     <PageContainer>
@@ -62,7 +70,30 @@ export default async function ClientePage({
       <PageHeader
         eyebrow="Cliente"
         title={cliente.empresa}
-        action={<Badge tone={ESTADOS_CLIENTE[cliente.estado].tone}>{ESTADOS_CLIENTE[cliente.estado].label}</Badge>}
+        action={
+          <div className="flex items-center gap-2">
+            <Badge tone={ESTADOS_CLIENTE[cliente.estado].tone}>{ESTADOS_CLIENTE[cliente.estado].label}</Badge>
+            {deBaja ? (
+              <BotonAccion
+                action={setEstadoCliente.bind(null, cliente.id, 'activo')}
+                confirmar={`¿Reactivar a ${cliente.empresa}?`}
+                variant="secondary"
+              >
+                <UserCheck size={14} />
+                Reactivar
+              </BotonAccion>
+            ) : (
+              <BotonAccion
+                action={setEstadoCliente.bind(null, cliente.id, 'finalizado')}
+                confirmar={`¿Dar de baja a ${cliente.empresa}? Seguirá en la lista de clientes "De baja" con todos sus datos y contratos.`}
+                variant="secondary"
+              >
+                <UserX size={14} />
+                Dar de baja
+              </BotonAccion>
+            )}
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
@@ -124,7 +155,7 @@ export default async function ClientePage({
             <div className="mt-5 border-t border-hairline/[0.06] pt-4">
               <BotonAccion
                 action={eliminarCliente.bind(null, cliente.id)}
-                confirmar={`¿Eliminar a ${cliente.empresa}? Se borran también sus proyectos. La oportunidad en el pipeline no se toca.`}
+                confirmar={`¿Eliminar a ${cliente.empresa}? Se borran también sus servicios contratados y sus contratos. La oportunidad en el pipeline no se toca.`}
                 variant="danger"
               >
                 <Trash2 size={14} />
@@ -134,27 +165,32 @@ export default async function ClientePage({
           </Card>
         </div>
 
-        {/* Columna derecha: proyectos */}
+        {/* Columna derecha: servicios contratados y contratos */}
         <div className="space-y-4 lg:col-span-3">
+          <Card>
+            <CardTitle icon={<FileSignature size={17} />}>Contratos firmados con {cliente.empresa}</CardTitle>
+            <Contratos clienteId={cliente.id} contratos={contratos ?? []} />
+          </Card>
+
           <Card>
             <CardTitle
               icon={<FolderKanban size={17} />}
               action={
                 <FormDialogo
-                  titulo="Nuevo proyecto"
-                  trigger={<><Plus size={15} />Proyecto</>}
+                  titulo="Nuevo servicio contratado"
+                  trigger={<><Plus size={15} />Servicio</>}
                   triggerSize="sm"
                   action={guardarProyecto}
-                  submitLabel="Crear proyecto"
+                  submitLabel="Añadir servicio"
                 >
                   <CamposProyecto clienteId={cliente.id} />
                 </FormDialogo>
               }
             >
-              Proyectos
+              Servicios contratados
             </CardTitle>
             {!proyectos?.length ? (
-              <EstadoVacio icon={<FolderKanban size={20} />} titulo="Sin proyectos todavía" />
+              <EstadoVacio icon={<FolderKanban size={20} />} titulo="Sin servicios contratados todavía" />
             ) : (
               <ul className="space-y-2">
                 {proyectos.map((p) => (
@@ -185,7 +221,7 @@ export default async function ClientePage({
                           </a>
                         )}
                         <FormDialogo
-                          titulo="Editar proyecto"
+                          titulo="Editar servicio"
                           trigger={<Pencil size={15} />}
                           triggerVariant="ghost"
                           triggerSize="icon"
@@ -196,7 +232,7 @@ export default async function ClientePage({
                         </FormDialogo>
                         <BotonAccion
                           action={eliminarProyecto.bind(null, p.id)}
-                          confirmar={`¿Eliminar el proyecto "${p.nombre}"?`}
+                          confirmar={`¿Eliminar el servicio "${p.nombre}"?`}
                           size="icon"
                           title="Eliminar"
                         >

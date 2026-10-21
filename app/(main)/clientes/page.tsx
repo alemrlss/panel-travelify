@@ -16,7 +16,7 @@ import type { EstadoCliente } from '@/lib/supabase/types'
 const FILTROS: { value: EstadoCliente | 'todos'; label: string }[] = [
   { value: 'activo', label: 'Activos' },
   { value: 'pausado', label: 'Pausados' },
-  { value: 'finalizado', label: 'Finalizados' },
+  { value: 'finalizado', label: 'De baja' },
   { value: 'todos', label: 'Todos' },
 ]
 
@@ -104,7 +104,7 @@ export default async function ClientesPage({
                     </div>
                   </div>
                   <dl className="mt-4 grid grid-cols-3 gap-2">
-                    <Cifra label="Proyectos" valor={suyos.length} />
+                    <Cifra label="Servicios" valor={suyos.length} />
                     <Cifra label="En curso" valor={enCurso} />
                     <Cifra label="Entregados" valor={entregados} />
                   </dl>
@@ -122,7 +122,7 @@ function Cifra({ label, valor }: { label: string; valor: number }) {
   return (
     <div className="rounded-xl bg-elevated px-3 py-2">
       <dt className="flex items-center gap-1 text-[11px] text-ink/40">
-        {label === 'Proyectos' && <FolderKanban size={11} />}
+        {label === 'Servicios' && <FolderKanban size={11} />}
         {label}
       </dt>
       <dd className="tabular mt-0.5 text-sm font-bold text-ink">{valor}</dd>

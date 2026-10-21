@@ -56,6 +56,16 @@ export type Proyecto = {
   updated_at: string
 }
 
+export type Contrato = {
+  id: string
+  cliente_id: string
+  nombre: string
+  archivo_path: string
+  mime: string
+  tamano_bytes: number
+  created_at: string
+}
+
 export type Documento = {
   id: string
   slug: string
@@ -88,6 +98,7 @@ export interface Database {
       team_members: Tabla<TeamMember, TeamMember, 'id' | 'email' | 'full_name'>
       clientes: Tabla<Cliente, Cliente, 'empresa'>
       proyectos: Tabla<Proyecto, Proyecto, 'cliente_id' | 'nombre' | 'tipo'>
+      contratos: Tabla<Contrato, Contrato, 'cliente_id' | 'nombre' | 'archivo_path' | 'mime' | 'tamano_bytes'>
       documentos: Tabla<Documento, DocumentoEscribible, 'slug' | 'titulo'>
     }
     Views: Record<string, never>

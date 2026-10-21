@@ -22,7 +22,8 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 | Dónde | Qué |
 | --- | --- |
 | **GHL** (fuente de verdad) | Prospectos, etapas, estado `open/won/lost`, valor, datos de contacto |
-| **Supabase** | `team_members`, `clientes` (datos propios; vínculo opcional al contacto/oportunidad de GHL), `proyectos`, `documentos` |
+| **Supabase** | `team_members`, `clientes` (datos propios; vínculo opcional al contacto/oportunidad de GHL), `proyectos` (en la UI: "Servicios contratados"), `contratos`, `documentos` |
+| **Storage** | Bucket privado `contratos` (PDF, Word, JPG, PNG; 20 MB), ruta `{cliente_id}/{uuid}.{ext}` |
 
 - **Ciclo del cliente:** el lead avanza por el pipeline de GHL. En el detalle de la oportunidad,
   "Convertir en cliente" (`convertirEnCliente`) abre un formulario con los datos del lead
@@ -32,6 +33,14 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 - El cliente tiene **datos propios** en Supabase: `empresa` (obligatoria), `responsable`,
   `telefono`, `email` (migración 0005). Ya no se leen de GHL en vivo. `ghl_contact_id` y
   `ghl_opportunity_id` son opcionales (null en altas manuales).
+- **Servicios contratados** = tabla `proyectos` (nombre, tipo, estado, fechas, enlace, notas). Solo se
+  renombró en la interfaz (2026-10-21).
+- **Contratos firmados** por cliente: el archivo se sube desde el navegador a Storage con la sesión
+  (las Server Actions limitan a 1 MB) y `registrarContrato` guarda la fila; si falla, borra el
+  archivo. Ver/descargar con Signed URL de 5 min (la descarga usa el nombre original). Al eliminar
+  un cliente se borran antes sus archivos (la cascada de la tabla no toca Storage).
+- **Dar de baja / Reactivar** desde la cabecera de la ficha (`setEstadoCliente`): "De baja" es el
+  estado `finalizado`; conserva datos y contratos.
 - `monetaryValue` de GHL viene en **euros**.
 - **Sin módulo de facturación ni contabilidad** (decisión de Alejandro, 2026-10-21): las facturas
   las lleva en Google Drive. El panel no maneja importes salvo el valor de las oportunidades de GHL.
@@ -67,7 +76,7 @@ app/
     pipeline/                   Kanban GHL (drag & drop desktop, pestañas en mobile)
     pipeline/[opportunityId]/   Detalle + mover etapa + "Convertir en cliente" (→ Ganada en GHL)
     clientes/                   Lista filtrable por estado con nº de proyectos
-    clientes/[clientId]/        Ficha: contacto (Supabase), edición, proyectos, enlace a la oportunidad
+    clientes/[clientId]/        Ficha: contacto, edición, dar de baja, contratos firmados, servicios contratados
     documentacion/              Lista por categoría + buscador; [slug]/ ver, [slug]/editar, nuevo/
     configuracion/              Cuenta, cambio de contraseña, estado de conexiones
 actions/                      Server Actions (zod + revalidatePath)
@@ -83,7 +92,7 @@ components/
   dashboard/                   KpiCard, Embudo
   form-dialogo.tsx             Botón + diálogo + formulario conectado a una Server Action
 supabase/migrations/          0001_init, 0002_contabilidad (revertida por 0004), 0003_documentacion,
-                              0004_quitar_contabilidad, 0005_clientes_datos_propios
+                              0004_quitar_contabilidad, 0005_clientes_datos_propios, 0006_contratos
 supabase/seed.sql             Alta del usuario en team_members
 ```
 

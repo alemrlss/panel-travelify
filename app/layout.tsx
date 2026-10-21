@@ -11,7 +11,7 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: 'CRM · Alejandro Morales',
-  description: 'Pipeline, clientes, proyectos y facturación',
+  description: 'Pipeline, clientes, servicios contratados y documentación',
   robots: { index: false, follow: false },
 }
 

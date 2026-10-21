@@ -11,7 +11,7 @@ import type {
 export const ESTADOS_CLIENTE: Record<EstadoCliente, { label: string; tone: Tone }> = {
   activo: { label: 'Activo', tone: 'success' },
   pausado: { label: 'Pausado', tone: 'warning' },
-  finalizado: { label: 'Finalizado', tone: 'neutral' },
+  finalizado: { label: 'De baja', tone: 'neutral' },
 }
 
 export const TIPOS_PROYECTO: Record<TipoProyecto, string> = {

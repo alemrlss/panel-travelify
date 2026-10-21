@@ -11,11 +11,11 @@ export function CamposProyecto({ clienteId, proyecto }: { clienteId: string; pro
     <>
       <input type="hidden" name="cliente_id" value={clienteId} />
       {proyecto && <input type="hidden" name="id" value={proyecto.id} />}
-      <Campo label="Nombre del proyecto">
+      <Campo label="Nombre del servicio">
         <Input name="nombre" required defaultValue={proyecto?.nombre} placeholder="Agente WhatsApp v1" />
       </Campo>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Campo label="Tipo">
+        <Campo label="Tipo de servicio">
           <Select name="tipo" defaultValue={proyecto?.tipo ?? 'agente_whatsapp'}>
             {opciones(TIPOS_PROYECTO).map((o) => (
               <option key={o.value} value={o.value}>
@@ -36,7 +36,7 @@ export function CamposProyecto({ clienteId, proyecto }: { clienteId: string; pro
         <Campo label="Inicio">
           <Input name="fecha_inicio" type="date" defaultValue={proyecto?.fecha_inicio ?? ''} />
         </Campo>
-        <Campo label="Entrega prevista">
+        <Campo label="Entrega / fin previsto">
           <Input name="fecha_entrega" type="date" defaultValue={proyecto?.fecha_entrega ?? ''} />
         </Campo>
       </div>

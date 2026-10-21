@@ -14,7 +14,7 @@ const fecha = z
 const proyectoSchema = z.object({
   id: z.string().uuid().optional(),
   cliente_id: z.string().uuid(),
-  nombre: z.string().min(1, 'Ponle un nombre al proyecto'),
+  nombre: z.string().min(1, 'Ponle un nombre al servicio'),
   tipo: z.enum([
     'agente_whatsapp',
     'agente_llamadas',
@@ -54,7 +54,7 @@ export async function guardarProyecto(_prev: Resultado, formData: FormData): Pro
   const { error } = id
     ? await supabase.from('proyectos').update(fila).eq('id', id)
     : await supabase.from('proyectos').insert(fila)
-  if (error) return { error: `No se pudo guardar el proyecto: ${error.message}` }
+  if (error) return { error: `No se pudo guardar el servicio: ${error.message}` }
 
   revalidatePath('/', 'layout')
   return { ok: true }
@@ -64,6 +64,6 @@ export async function eliminarProyecto(id: string) {
   await requireUser()
   const supabase = await createClient()
   const { error } = await supabase.from('proyectos').delete().eq('id', id)
-  if (error) throw new Error(`No se pudo eliminar el proyecto: ${error.message}`)
+  if (error) throw new Error(`No se pudo eliminar el servicio: ${error.message}`)
   revalidatePath('/', 'layout')
 }
