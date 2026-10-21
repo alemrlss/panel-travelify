@@ -25,10 +25,7 @@ export default async function LoginPage({
 
         <div className="rounded-2xl border border-hairline/[0.08] bg-card/80 p-6 shadow-soft backdrop-blur sm:p-8">
           <h1 className="text-2xl font-bold tracking-tight text-ink">Hola de nuevo</h1>
-          <p className="mt-1.5 text-sm text-ink/50">
-            Entra para ver tu pipeline, clientes y cobros.
-          </p>
-          <div className="mb-7 mt-5 h-[3px] w-10 rounded-full bg-brand-500" />
+          <div className="mb-7 mt-4 h-[3px] w-10 rounded-full bg-brand-500" />
 
           <LoginForm error={error} />
         </div>
