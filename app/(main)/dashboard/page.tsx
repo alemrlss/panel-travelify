@@ -1,199 +1,171 @@
 import Link from 'next/link'
-import { ArrowRight, BookText, Euro, FolderKanban, KanbanSquare, Plus, Target, UserPlus, Users } from 'lucide-react'
+import {
+  ArrowRight,
+  CalendarDays,
+  Clock,
+  Euro,
+  Filter,
+  KanbanSquare,
+  Target,
+  UserPlus,
+  Users,
+} from 'lucide-react'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { getTasaCierre } from '@/lib/metricas'
-import { CATEGORIAS_DOC } from '@/lib/documentacion'
-import { diasDesde, formatEUR, formatFecha, inicioDeMes, nombreMes } from '@/lib/formato'
-import { ESTADOS_PROYECTO, TIPOS_PROYECTO } from '@/lib/catalogos'
+import { DIAS_SIN_MOVIMIENTO, getResumenPipeline } from '@/lib/metricas'
+import { formatEUR, inicioDeMes, nombreMes } from '@/lib/formato'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
-import { Card, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Aviso, Card, CardTitle } from '@/components/ui/card'
 import { EstadoVacio } from '@/components/ui/estado-vacio'
 import { KpiCard } from '@/components/dashboard/kpi-card'
+import { Embudo } from '@/components/dashboard/embudo'
 import { buttonBase, buttonSizes, buttonVariants } from '@/components/ui/button'
 import { clsx } from '@/lib/clsx'
 
 export default async function DashboardPage() {
   const user = await requireUser()
   const supabase = await createClient()
+  const mesActual = inicioDeMes(0)
 
-  // GHL va aparte: si falla, el resto del Dashboard carga igual.
-  const [cierre, { data: clientes }, { data: proyectos }, { data: docs }] = await Promise.all([
-    getTasaCierre().catch(() => null),
-    supabase.from('clientes').select('id, nombre_cache, estado'),
-    supabase
-      .from('proyectos')
-      .select('id, cliente_id, nombre, tipo, estado, fecha_entrega')
-      .in('estado', ['en_curso', 'en_revision'])
-      .order('fecha_entrega', { ascending: true, nullsFirst: false }),
-    supabase
-      .from('documentos')
-      .select('id, slug, titulo, categoria, updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(5),
+  // GHL va aparte: si falla, las cifras de clientes cargan igual.
+  const [p, { data: clientes }] = await Promise.all([
+    getResumenPipeline().catch(() => null),
+    supabase.from('clientes').select('id, estado, created_at'),
   ])
-
   const activos = (clientes ?? []).filter((c) => c.estado === 'activo').length
-  const nombres = new Map(clientes?.map((c) => [c.id, c.nombre_cache]))
+  const clientesNuevosMes = (clientes ?? []).filter((c) => c.created_at.slice(0, 10) >= mesActual).length
 
   return (
     <PageContainer>
-      <PageHeader eyebrow={nombreMes(inicioDeMes(0), true)} title={`Hola, ${user.full_name.split(' ')[0]}`} />
+      <PageHeader eyebrow={nombreMes(mesActual, true)} title={`Hola, ${user.full_name.split(' ')[0]}`} />
 
       {!clientes?.length && (
         <Card className="mb-6 border-brand-500/30 bg-brand-600/[0.06]">
           <p className="text-sm font-semibold text-ink">Empieza a cargar tu negocio</p>
           <p className="mt-1 text-sm text-ink/55">
-            Crea tus clientes desde los contactos de tu CRM, añade sus proyectos y documenta tus
-            procesos de Travelify.
+            Convierte en clientes tus oportunidades ganadas o créalos desde los contactos de tu CRM.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/clientes" className={clsx(buttonBase, buttonVariants.primary, buttonSizes.md)}>
-              <UserPlus size={16} />
-              Crear cliente
-            </Link>
-            <Link href="/documentacion/nuevo" className={clsx(buttonBase, buttonVariants.secondary, buttonSizes.md)}>
-              <Plus size={16} />
-              Nuevo documento
-            </Link>
-          </div>
+          <Link href="/clientes" className={clsx(buttonBase, buttonVariants.primary, buttonSizes.md, 'mt-4')}>
+            <UserPlus size={16} />
+            Crear cliente
+          </Link>
         </Card>
       )}
 
+      {!p && <div className="mb-4"><Aviso>No se pudo leer el pipeline en este momento.</Aviso></div>}
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <KpiCard
-          icon={<Users size={15} />}
-          label="Clientes activos"
-          valor={String(activos)}
-          detalle={`${clientes?.length ?? 0} en total`}
-        />
-        <KpiCard
-          icon={<FolderKanban size={15} />}
-          label="Proyectos en curso"
-          valor={String(proyectos?.length ?? 0)}
-          detalle="En curso o en revisión"
-        />
+        <KpiCard icon={<Users size={15} />} label="Clientes activos" valor={String(activos)} detalle={`${clientes?.length ?? 0} en total`} />
         <KpiCard
           icon={<KanbanSquare size={15} />}
           label="Oportunidades abiertas"
-          valor={cierre ? String(cierre.abiertos) : '—'}
-          detalle="En tu pipeline"
+          valor={p ? String(p.abiertas) : '—'}
+          detalle={p?.pipelineNombre}
         />
         <KpiCard
           icon={<Euro size={15} />}
           label="Valor en pipeline"
-          valor={cierre ? formatEUR(cierre.valorAbierto * 100) : '—'}
-          detalle="Suma de oportunidades abiertas"
+          valor={p ? formatEUR(p.valorAbierto * 100) : '—'}
+          detalle="Oportunidades abiertas"
+        />
+        <KpiCard
+          icon={<Target size={15} />}
+          label="Tasa de cierre"
+          valor={p?.tasa === null || !p ? '—' : `${Math.round(p.tasa * 100)}%`}
+          detalle={p ? `${p.won90} ganadas · ${p.lost90} perdidas · 90 días` : undefined}
         />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card>
-          <CardTitle icon={<Target size={17} />} action={<VerTodo href="/pipeline" />}>
-            Tasa de cierre
-          </CardTitle>
-          {cierre ? (
-            <>
-              <p className="tabular text-4xl font-bold tracking-tight text-ink">
-                {cierre.tasa === null ? '—' : `${Math.round(cierre.tasa * 100)}%`}
-              </p>
-              <p className="mt-1 text-xs text-ink/45">
-                {cierre.tasa === null
-                  ? 'Sin oportunidades cerradas en los últimos 90 días'
-                  : 'Ganadas sobre cerradas, últimos 90 días'}
-              </p>
-              <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
-                <Mini label="Ganadas" valor={cierre.won} />
-                <Mini label="Perdidas" valor={cierre.lost} />
-                <Mini label="Abiertas" valor={cierre.abiertos} />
-              </dl>
-            </>
-          ) : (
-            <p className="text-sm text-amber-200">No se pudo leer el pipeline en este momento.</p>
-          )}
-        </Card>
+      {p && (
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardTitle icon={<Filter size={17} />} action={<VerTodo href="/pipeline" />}>
+              Embudo del pipeline
+            </CardTitle>
+            {p.abiertas === 0 ? (
+              <EstadoVacio
+                icon={<KanbanSquare size={20} />}
+                titulo="No hay oportunidades abiertas"
+                texto="Cuando entren leads en tu pipeline verás aquí cuántos hay en cada etapa."
+              />
+            ) : (
+              <Embudo etapas={p.porEtapa} />
+            )}
+          </Card>
 
-        <Card>
-          <CardTitle icon={<FolderKanban size={17} />} action={<VerTodo href="/clientes" />}>
-            Proyectos en curso
-          </CardTitle>
-          {!proyectos?.length ? (
-            <EstadoVacio
-              icon={<FolderKanban size={20} />}
-              titulo="Ningún proyecto en curso"
-              texto="Los proyectos en curso o en revisión aparecen aquí."
-            />
-          ) : (
-            <ul className="divide-y divide-hairline/[0.06]">
-              {proyectos.slice(0, 6).map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/clientes/${p.cliente_id}`}
-                      className="block truncate text-sm font-semibold text-ink hover:text-brand-300"
-                    >
-                      {p.nombre}
-                    </Link>
-                    <p className="truncate text-xs text-ink/45">
-                      {nombres.get(p.cliente_id)} · {TIPOS_PROYECTO[p.tipo]}
-                    </p>
-                  </div>
-                  <div className="flex flex-shrink-0 flex-col items-end gap-1">
-                    <Badge tone={ESTADOS_PROYECTO[p.estado].tone}>{ESTADOS_PROYECTO[p.estado].label}</Badge>
-                    {p.fecha_entrega && (
-                      <span className="text-[11px] text-ink/40">Entrega {formatFecha(p.fecha_entrega)}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+          <Card>
+            <CardTitle icon={<CalendarDays size={17} />}>Este mes</CardTitle>
+            <dl className="grid grid-cols-2 gap-2">
+              <Mini label="Oportunidades nuevas" valor={p.mes.nuevas} />
+              <Mini label="Ganadas" valor={p.mes.ganadas} tono="success" />
+              <Mini label="Perdidas" valor={p.mes.perdidas} tono={p.mes.perdidas ? 'danger' : undefined} />
+              <Mini label="Clientes nuevos" valor={clientesNuevosMes} />
+            </dl>
+            {p.mes.valorGanado > 0 && (
+              <p className="tabular mt-4 text-xs text-ink/50">
+                <span className="font-semibold text-emerald-300">{formatEUR(p.mes.valorGanado * 100)}</span> en
+                oportunidades ganadas
+              </p>
+            )}
+          </Card>
 
-        <Card>
-          <CardTitle icon={<BookText size={17} />} action={<VerTodo href="/documentacion" />}>
-            Documentación reciente
-          </CardTitle>
-          {!docs?.length ? (
-            <EstadoVacio
-              icon={<BookText size={20} />}
-              titulo="Aún no hay documentos"
-              texto="Documenta tus procesos de Travelify para no depender de la memoria."
-            />
-          ) : (
-            <ul className="divide-y divide-hairline/[0.06]">
-              {docs.map((d) => {
-                const dias = diasDesde(d.updated_at.slice(0, 10))
-                return (
-                  <li key={d.id} className="py-3">
+          <Card className="lg:col-span-3">
+            <CardTitle icon={<Clock size={17} />} action={<VerTodo href="/pipeline" />}>
+              Sin movimiento
+            </CardTitle>
+            <p className="-mt-2 mb-4 text-xs text-ink/40">
+              Oportunidades abiertas que llevan {DIAS_SIN_MOVIMIENTO} días o más en la misma etapa
+            </p>
+            {p.sinMovimiento.length === 0 ? (
+              <EstadoVacio icon={<Clock size={20} />} titulo="Todo en movimiento" />
+            ) : (
+              <ul className="divide-y divide-hairline/[0.06]">
+                {p.sinMovimiento.slice(0, 8).map((o) => (
+                  <li key={o.id}>
                     <Link
-                      href={`/documentacion/${d.slug}`}
-                      className="block truncate text-sm font-semibold text-ink hover:text-brand-300"
+                      href={`/pipeline/${o.id}`}
+                      className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-brand-300"
                     >
-                      {d.titulo}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">{o.nombre}</p>
+                        <p className="truncate text-xs text-ink/45">
+                          {o.etapa}
+                          {o.valor > 0 && ` · ${formatEUR(o.valor * 100)}`}
+                        </p>
+                      </div>
+                      <span
+                        className={clsx(
+                          'tabular flex-shrink-0 text-xs font-semibold',
+                          o.dias >= DIAS_SIN_MOVIMIENTO * 2 ? 'text-red-300' : 'text-amber-300'
+                        )}
+                      >
+                        {o.dias} días
+                      </span>
                     </Link>
-                    <p className="text-xs text-ink/45">
-                      {CATEGORIAS_DOC[d.categoria].label} ·{' '}
-                      {dias <= 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`}
-                    </p>
                   </li>
-                )
-              })}
-            </ul>
-          )}
-        </Card>
-      </div>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+      )}
     </PageContainer>
   )
 }
 
-function Mini({ label, valor }: { label: string; valor: number }) {
+function Mini({ label, valor, tono }: { label: string; valor: number; tono?: 'success' | 'danger' }) {
   return (
-    <div className="rounded-xl bg-elevated px-2 py-2.5">
-      <dd className="tabular text-lg font-bold text-ink">{valor}</dd>
-      <dt className="text-[11px] text-ink/45">{label}</dt>
+    <div className="rounded-xl bg-elevated px-3 py-3">
+      <dd
+        className={clsx(
+          'tabular text-xl font-bold',
+          tono === 'success' && valor > 0 ? 'text-emerald-300' : tono === 'danger' ? 'text-red-300' : 'text-ink'
+        )}
+      >
+        {valor}
+      </dd>
+      <dt className="mt-0.5 text-[11px] leading-tight text-ink/45">{label}</dt>
     </div>
   )
 }

@@ -23,6 +23,9 @@ export interface GhlOpportunity {
   monetaryValue?: number
   createdAt: string
   updatedAt?: string
+  // Cuándo pasó a won/lost y cuándo cambió de etapa por última vez.
+  lastStatusChangeAt?: string
+  lastStageChangeAt?: string
   contact?: GhlContact
 }
 

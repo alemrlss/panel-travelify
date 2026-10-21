@@ -31,12 +31,17 @@ sus proyectos y la documentación de los procesos de Travelify. Reutiliza el pat
 - **Sin módulo de facturación ni contabilidad** (decisión de Alejandro, 2026-10-21): las facturas
   las lleva en Google Drive. El panel no maneja importes salvo el valor de las oportunidades de GHL.
 
-## Métricas
+## Métricas (Dashboard)
 
-- `lib/metricas.ts`: tasa de cierre = won / (won + lost) del pipeline, últimos 90 días, y valor
-  de las oportunidades abiertas.
-- Dashboard: clientes activos, proyectos en curso, oportunidades abiertas, valor en pipeline,
-  tasa de cierre y documentación reciente. Si GHL falla, el resto carga igual.
+`lib/metricas.ts` → `getResumenPipeline()`: una sola lectura del pipeline de GHL. Calcula:
+
+- Oportunidades abiertas y valor en pipeline.
+- Tasa de cierre: won / (won + lost) de los últimos 90 días, por `lastStatusChangeAt`.
+- Embudo: abiertas por etapa, con nº y valor.
+- Este mes: oportunidades nuevas (`createdAt`), ganadas y perdidas (`lastStatusChangeAt`), y valor ganado.
+- Sin movimiento: abiertas con 14 días o más sin cambiar de etapa (`lastStageChangeAt`).
+
+De Supabase salen los clientes activos y los nuevos del mes. Si GHL falla, las cifras de clientes cargan igual. A pedido de Alejandro, el Dashboard no muestra proyectos ni documentación.
 
 ## Documentación de Travelify
 
@@ -53,7 +58,7 @@ en desktop, pestañas en móvil), atajos de formato, Ctrl+S y aviso de cambios s
 app/
   login/                      Login (Supabase Auth)
   (main)/                     Rutas protegidas (requireUser + proxy.ts)
-    dashboard/                  Clientes, proyectos, pipeline, tasa de cierre, documentación reciente
+    dashboard/                  KPIs, embudo del pipeline, este mes, oportunidades sin movimiento
     pipeline/                   Kanban GHL (drag & drop desktop, pestañas en mobile)
     pipeline/[opportunityId]/   Detalle + mover etapa + "Convertir en cliente"
     clientes/                   Lista filtrable por estado con nº de proyectos
@@ -70,7 +75,7 @@ lib/
 components/
   ui/                          Primitivos (Button, Card, Badge, Input/Select/Textarea, Dialogo…)
   documentacion/               Editor y render Markdown
-  dashboard/                   KpiCard
+  dashboard/                   KpiCard, Embudo
   form-dialogo.tsx             Botón + diálogo + formulario conectado a una Server Action
 supabase/migrations/          0001_init, 0002_contabilidad (revertida por 0004), 0003_documentacion,
                               0004_quitar_contabilidad
