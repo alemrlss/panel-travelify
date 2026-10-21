@@ -6,6 +6,7 @@ import {
   Euro,
   Mail,
   MessageCircle,
+  MessageSquare,
   Pencil,
   Phone,
   RotateCcw,
@@ -18,7 +19,7 @@ import { requireUser } from '@/lib/auth'
 import { getContact, getOpportunity, getPipelineStages } from '@/lib/ghl/client'
 import type { GhlContact, GhlOpportunity, GhlPipeline } from '@/lib/ghl/types'
 import { createClient } from '@/lib/supabase/server'
-import type { OportunidadPerdida } from '@/lib/supabase/types'
+import type { LeadNota, OportunidadPerdida } from '@/lib/supabase/types'
 import { MOTIVOS_PERDIDA, opciones } from '@/lib/catalogos'
 import { formatEUR, formatFecha, getContactoNombre, waLink } from '@/lib/formato'
 import { guardarValorOportunidad, marcarPerdida, moveOpportunityStage, reabrirOportunidad } from '@/actions/pipeline'
@@ -26,6 +27,7 @@ import { convertirEnCliente } from '@/actions/clientes'
 import { FormDialogo } from '@/components/form-dialogo'
 import { BotonAccion } from '@/components/boton-accion'
 import { CamposCliente } from '@/components/campos'
+import { NotasLead } from '@/components/pipeline/notas-lead'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
 import { Aviso, Card, CardTitle } from '@/components/ui/card'
@@ -67,14 +69,21 @@ export default async function OportunidadPage({
 
   let clienteId: string | null = null
   let perdida: OportunidadPerdida | null = null
+  let notas: LeadNota[] = []
   if (opportunity) {
     const supabase = await createClient()
-    const [{ data }, { data: motivo }] = await Promise.all([
+    const [{ data }, { data: motivo }, { data: notasLead }] = await Promise.all([
       supabase.from('clientes').select('id').eq('ghl_contact_id', opportunity.contactId).maybeSingle(),
       supabase.from('oportunidades_perdidas').select('*').eq('ghl_opportunity_id', opportunity.id).maybeSingle(),
+      supabase
+        .from('lead_notas')
+        .select('*')
+        .eq('ghl_contact_id', opportunity.contactId)
+        .order('created_at', { ascending: false }),
     ])
     clienteId = data?.id ?? null
     perdida = motivo
+    notas = notasLead ?? []
   }
 
   const nombre = getContactoNombre(contact)
@@ -103,76 +112,83 @@ export default async function OportunidadPage({
 
       {opportunity && (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <Card>
-            <CardTitle icon={<User size={17} />}>Contacto</CardTitle>
-            <dl className="space-y-3 text-sm">
-              <Dato icon={<User size={16} />} label="Nombre">
-                {nombre}
-              </Dato>
-              <Dato icon={<Building2 size={16} />} label="Empresa">
-                {contact?.companyName ?? '—'}
-              </Dato>
-              <Dato icon={<Phone size={16} />} label="Teléfono">
-                {contact?.phone ? (
-                  <span className="flex flex-wrap items-center gap-3">
-                    <a href={`tel:${contact.phone}`} className="text-brand-300 hover:underline">
-                      {contact.phone}
-                    </a>
+          <div className="space-y-6">
+            <Card>
+              <CardTitle icon={<User size={17} />}>Contacto</CardTitle>
+              <dl className="space-y-3 text-sm">
+                <Dato icon={<User size={16} />} label="Nombre">
+                  {nombre}
+                </Dato>
+                <Dato icon={<Building2 size={16} />} label="Empresa">
+                  {contact?.companyName ?? '—'}
+                </Dato>
+                <Dato icon={<Phone size={16} />} label="Teléfono">
+                  {contact?.phone ? (
+                    <span className="flex flex-wrap items-center gap-3">
+                      <a href={`tel:${contact.phone}`} className="text-brand-300 hover:underline">
+                        {contact.phone}
+                      </a>
+                      <a
+                        href={waLink(contact.phone)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:underline"
+                      >
+                        <MessageCircle size={13} />
+                        WhatsApp
+                      </a>
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </Dato>
+                <Dato icon={<Mail size={16} />} label="Email">
+                  {contact?.email ? (
                     <a
-                      href={waLink(contact.phone)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-300 hover:underline"
+                      href={`mailto:${contact.email}`}
+                      className="break-all text-brand-300 hover:underline"
                     >
-                      <MessageCircle size={13} />
-                      WhatsApp
+                      {contact.email}
                     </a>
+                  ) : (
+                    '—'
+                  )}
+                </Dato>
+                <Dato icon={<Euro size={16} />} label="Valor">
+                  <span className="flex items-center gap-2">
+                    {opportunity.monetaryValue ? formatEUR(opportunity.monetaryValue * 100) : '—'}
+                    <FormDialogo
+                      titulo="Valor de la oportunidad"
+                      trigger={<Pencil size={14} />}
+                      triggerVariant="ghost"
+                      triggerSize="icon"
+                      triggerTitle="Editar valor"
+                      action={guardarValorOportunidad}
+                    >
+                      <input type="hidden" name="id" value={opportunity.id} />
+                      <Campo label="Valor (€)" htmlFor="valor-oportunidad">
+                        <Input
+                          id="valor-oportunidad"
+                          name="valor"
+                          inputMode="decimal"
+                          placeholder="Ej.: 450"
+                          defaultValue={opportunity.monetaryValue ? String(opportunity.monetaryValue).replace('.', ',') : ''}
+                        />
+                      </Campo>
+                      <p className="text-xs text-ink/45">
+                        Lo que le has propuesto. Suma en &quot;Valor en pipeline&quot; del Dashboard.
+                      </p>
+                    </FormDialogo>
                   </span>
-                ) : (
-                  '—'
-                )}
-              </Dato>
-              <Dato icon={<Mail size={16} />} label="Email">
-                {contact?.email ? (
-                  <a
-                    href={`mailto:${contact.email}`}
-                    className="break-all text-brand-300 hover:underline"
-                  >
-                    {contact.email}
-                  </a>
-                ) : (
-                  '—'
-                )}
-              </Dato>
-              <Dato icon={<Euro size={16} />} label="Valor">
-                <span className="flex items-center gap-2">
-                  {opportunity.monetaryValue ? formatEUR(opportunity.monetaryValue * 100) : '—'}
-                  <FormDialogo
-                    titulo="Valor de la oportunidad"
-                    trigger={<Pencil size={14} />}
-                    triggerVariant="ghost"
-                    triggerSize="icon"
-                    triggerTitle="Editar valor"
-                    action={guardarValorOportunidad}
-                  >
-                    <input type="hidden" name="id" value={opportunity.id} />
-                    <Campo label="Valor (€)" htmlFor="valor-oportunidad">
-                      <Input
-                        id="valor-oportunidad"
-                        name="valor"
-                        inputMode="decimal"
-                        placeholder="Ej.: 450"
-                        defaultValue={opportunity.monetaryValue ? String(opportunity.monetaryValue).replace('.', ',') : ''}
-                      />
-                    </Campo>
-                    <p className="text-xs text-ink/45">
-                      Lo que le has propuesto. Suma en &quot;Valor en pipeline&quot; del Dashboard.
-                    </p>
-                  </FormDialogo>
-                </span>
-              </Dato>
-            </dl>
-          </Card>
+                </Dato>
+              </dl>
+            </Card>
+
+            <Card>
+              <CardTitle icon={<MessageSquare size={17} />}>Notas internas</CardTitle>
+              <NotasLead contactId={opportunity.contactId} opportunityId={opportunity.id} notasIniciales={notas} />
+            </Card>
+          </div>
 
           <div className="space-y-6">
             <Card>

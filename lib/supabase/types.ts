@@ -115,6 +115,14 @@ export type OportunidadPerdida = {
   created_at: string
 }
 
+export type LeadNota = {
+  id: string
+  ghl_contact_id: string
+  ghl_opportunity_id: string | null
+  texto: string
+  created_at: string
+}
+
 export type Documento = {
   id: string
   slug: string
@@ -154,6 +162,7 @@ export interface Database {
       >
       cliente_eventos: Tabla<ClienteEvento, ClienteEvento, 'cliente_id' | 'tipo' | 'descripcion'>
       documentos: Tabla<Documento, DocumentoEscribible, 'slug' | 'titulo'>
+      lead_notas: Tabla<LeadNota, LeadNota, 'ghl_contact_id' | 'texto'>
       oportunidades_perdidas: Tabla<OportunidadPerdida, OportunidadPerdida, 'ghl_opportunity_id' | 'nombre' | 'motivo'>
     }
     Views: Record<string, never>

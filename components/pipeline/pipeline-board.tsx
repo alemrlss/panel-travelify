@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition, type DragEvent } from 'react'
-import Link from 'next/link'
+import { useEffect, useRef, useState, useTransition, type DragEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarPlus, History, Inbox, Mail, Phone, ThumbsDown } from 'lucide-react'
 import { moveOpportunityStage } from '@/actions/pipeline'
@@ -9,6 +8,7 @@ import { formatEUR, formatFechaHora, getContactoNombre } from '@/lib/formato'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { clsx } from '@/lib/clsx'
+import { PanelLead } from '@/components/pipeline/panel-lead'
 import type { GhlOpportunity } from '@/lib/ghl/types'
 
 // Acento de respaldo si la etapa de GHL no trae color propio.
@@ -51,6 +51,9 @@ export function PipelineBoard({
   const [dragging, setDragging] = useState<{ oppId: string; fromStageId: string } | null>(null)
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null)
   const [activeStageId, setActiveStageId] = useState(columnasIniciales[0]?.stageId)
+  // Lead abierto en el panel lateral; si se movió de etapa desde ahí, se refresca al cerrar.
+  const [abierta, setAbierta] = useState<string | null>(null)
+  const movidoEnPanel = useRef(false)
 
   function moverLocal(oppId: string, fromStageId: string, toStageId: string) {
     setColumnas((prev) => {
@@ -80,6 +83,12 @@ export function PipelineBoard({
       await moveOpportunityStage(oppId, toStageId)
       router.refresh()
     })
+  }
+
+  function movidoDesdePanel(oppId: string, toStageId: string) {
+    const origen = columnas.find((c) => c.opportunities.some((o) => o.id === oppId))
+    if (origen && origen.stageId !== toStageId) moverLocal(oppId, origen.stageId, toStageId)
+    movidoEnPanel.current = true
   }
 
   const activeColumna = columnas.find((c) => c.stageId === activeStageId) ?? columnas[0]
@@ -129,6 +138,7 @@ export function PipelineBoard({
               key={opp.id}
               opp={opp}
               motivo={motivos[opp.id]}
+              onAbrir={() => setAbierta(opp.id)}
               draggable={false}
               onDragStart={() => {}}
               onDragEnd={() => {}}
@@ -188,6 +198,7 @@ export function PipelineBoard({
                     key={opp.id}
                     opp={opp}
                     motivo={motivos[opp.id]}
+                    onAbrir={() => setAbierta(opp.id)}
                     draggable={arrastrable}
                     onDragStart={() => setDragging({ oppId: opp.id, fromStageId: col.stageId })}
                     onDragEnd={() => {
@@ -201,6 +212,19 @@ export function PipelineBoard({
           ))}
         </div>
       </div>
+
+      <PanelLead
+        opportunityId={abierta}
+        etapas={columnas.map((c) => ({ id: c.stageId, nombre: c.stageName }))}
+        onMovido={movidoDesdePanel}
+        onCerrar={() => {
+          setAbierta(null)
+          if (movidoEnPanel.current) {
+            movidoEnPanel.current = false
+            router.refresh()
+          }
+        }}
+      />
     </div>
   )
 }
@@ -214,12 +238,14 @@ const ESTADO_OPP: Record<string, { label: string; tone: 'success' | 'danger' | '
 function OportunidadCard({
   opp,
   motivo,
+  onAbrir,
   draggable = true,
   onDragStart,
   onDragEnd,
 }: {
   opp: GhlOpportunity
   motivo?: Motivos[string]
+  onAbrir: () => void
   draggable?: boolean
   onDragStart: () => void
   onDragEnd: () => void
@@ -232,17 +258,24 @@ function OportunidadCard({
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      // Clic en cualquier parte de la tarjeta: abre el panel (tras un arrastre el navegador no emite click).
+      onClick={onAbrir}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onAbrir()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Abrir ${opp.name || nombre}`}
       className={clsx(
-        'min-w-0 space-y-2.5 overflow-hidden bg-elevated p-3.5 hover:shadow-lift sm:p-3.5',
-        draggable && 'cursor-grab active:cursor-grabbing'
+        'group min-w-0 cursor-pointer space-y-2.5 overflow-hidden bg-elevated p-3.5 transition-colors hover:border-brand-500/40 hover:shadow-lift sm:p-3.5',
+        draggable && 'active:cursor-grabbing'
       )}
     >
       <div className="min-w-0">
-        <Link href={`/pipeline/${opp.id}`} className="block min-w-0">
-          <p className="truncate text-sm font-bold text-ink hover:text-brand-300">
-            {opp.name || nombre}
-          </p>
-        </Link>
+        <p className="truncate text-sm font-bold text-ink group-hover:text-brand-300">{opp.name || nombre}</p>
         {opp.name && opp.name !== nombre && (
           <p className="truncate text-xs text-ink/45">{nombre}</p>
         )}
@@ -257,16 +290,13 @@ function OportunidadCard({
       </div>
 
       {opp.status === 'lost' && (
-        <Link
-          href={`/pipeline/${opp.id}`}
-          className="block rounded-lg border border-red-500/15 bg-red-500/[0.06] px-2.5 py-2 text-xs"
-        >
+        <div className="rounded-lg border border-red-500/15 bg-red-500/[0.06] px-2.5 py-2 text-xs">
           <span className="flex items-center gap-1.5 font-semibold text-red-300">
             <ThumbsDown size={12} />
             {motivo?.motivo ?? 'Sin motivo: apúntalo'}
           </span>
           {motivo?.detalle && <span className="mt-1 line-clamp-2 block text-ink/60">{motivo.detalle}</span>}
-        </Link>
+        </div>
       )}
 
       <div className="min-w-0 space-y-1 text-xs text-ink/55">

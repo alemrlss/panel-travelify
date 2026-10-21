@@ -45,3 +45,23 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Panel lateral del lead: entra desde la derecha */
+@keyframes panel-entrar {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.panel-lateral[open] {
+  animation: panel-entrar 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-lateral[open] {
+    animation: none;
+  }
+}

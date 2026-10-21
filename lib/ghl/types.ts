@@ -39,6 +39,9 @@ export interface GhlContact {
   email?: string
   phone?: string
   website?: string
+  source?: string
+  tags?: string[]
+  dateAdded?: string
 }
 
 export interface GhlSearchMeta {

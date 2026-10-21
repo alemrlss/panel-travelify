@@ -85,6 +85,17 @@ desde la ficha de la oportunidad. Proceso comercial de Alejandro (etapas que ren
 Nuevo lead → Contactando → Cita Agendada → No Asistió → Negociación →
 Ganado / Onboarding; "perdido" es status, no etapa.
 
+**Panel lateral del lead**: clic en cualquier tarjeta del pipeline → panel desde la derecha
+(`components/pipeline/panel-lead.tsx`, `<dialog>` nativo; Escape o clic fuera cierran). Carga todo con
+`getDetalleLead` (`actions/leads.ts`): acciones rápidas (llamar, WhatsApp, email), etapa (se cambia
+desde ahí si está abierta), **notas internas**, motivo si se perdió, datos del lead y, si ya es
+cliente, su resumen y enlace a la ficha. Si GHL no tiene teléfono/email/empresa, se usan los de la
+ficha de cliente. "Abrir ficha completa" lleva a `/pipeline/[id]`, que también tiene las notas.
+
+**Notas internas** (`lead_notas`, migración 0011): van **por contacto de GHL**, no por oportunidad,
+así siguen con el lead si tiene otra oportunidad o se hace cliente. Se guardan en Supabase (no en
+las notas de GHL). Componente `components/pipeline/notas-lead.tsx` (Ctrl + Enter guarda).
+
 **Lo perdido no se borra nunca** (pedido de Alejandro: "que quede todo siempre en el CRM"). El
 pipeline tiene filtro Abiertas (por defecto) / Ganadas / Perdidas / Todas (`?ver=`); cada oportunidad
 sigue en la etapa donde se cerró y solo las abiertas se arrastran. Las perdidas muestran su motivo en
@@ -130,7 +141,8 @@ components/
 supabase/migrations/          0001_init, 0002_contabilidad (revertida por 0004), 0003_documentacion,
                               0004_quitar_contabilidad, 0005_clientes_datos_propios, 0006_contratos,
                               0007_servicios_cobro, 0008_historial_contratos_estados,
-                              0009_estados_por_tipo_de_cobro, 0010_oportunidades_perdidas
+                              0009_estados_por_tipo_de_cobro, 0010_oportunidades_perdidas,
+                              0011_lead_notas
 supabase/seed.sql             Alta del usuario en team_members
 ```
 
