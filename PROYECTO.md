@@ -106,7 +106,53 @@ sigue en la etapa donde se cerró y solo las abiertas se arrastran. Las perdidas
 la tarjeta. Si se marcó perdida fuera del panel, la ficha avisa y permite "Apuntar motivo" (y luego
 "Editar motivo"): `marcarPerdida` no toca GHL si ya estaba `lost` y conserva fecha y etapa.
 
-De Supabase salen los clientes activos y los nuevos del mes. Si GHL falla, las cifras de clientes cargan igual. A pedido de Alejandro, el Dashboard no muestra proyectos ni documentación.
+De Supabase salen los clientes activos y los nuevos del mes. Si GHL falla, las cifras de clientes cargan igual. A pedido de Alejandro, el Dashboard no muestra proyectos ni documentación. Sí muestra una tarjeta
+compacta de **Tareas** (vencidas, para hoy y pendientes, más las urgentes), fuera del bloque del pipeline.
+
+## Tareas
+
+Kanban `/tareas` (migración 0012) con tres columnas fijas: Por hacer / En curso / Hecho. Arrastre
+nativo en desktop (mismo patrón que el Pipeline); en móvil, pestañas por columna y el estado se cambia
+desde el detalle. Tablas `tareas` (título, descripción, estado, prioridad alta/media/baja,
+`fecha_limite`, `cliente_id` y `proyecto_id` opcionales, `completada_at`) y `tarea_subtareas`
+(checklist con `orden`, cascade al borrar la tarea).
+
+- Si la tarea tiene servicio, el cliente se toma del servicio (`actions/tareas.ts`).
+- FKs `on delete set null`: al borrar un cliente o servicio, sus tareas se quedan como «Interna».
+- `completada_at` es obligatoria si y solo si `estado = 'hecho'` (constraint `tareas_completada`).
+- «Vencida» y «Hoy» no se guardan: se calculan con `hoyISO()` (Madrid) en `lib/tareas.ts`.
+- Orden calculado, sin orden manual: vencidas, luego fecha límite y luego prioridad. Hecho va por la
+  última completada. La columna Hecho solo muestra los últimos 14 días salvo con `?hechas=todas`.
+- URL: `?cliente=<id|sin>`, `?prioridad=`, `?hechas=todas` y `?tarea=ID` (abre el detalle; lo usan
+  el Dashboard y la ficha de cliente).
+- La ficha de cliente tiene la tarjeta «Tareas pendientes» con «+ Tarea» precargado.
+- Las tareas no van al historial del cliente.
+
+### Tareas recurrentes
+
+Pestaña `/tareas/recurrentes` (migración 0013, requiere **pg_cron**). Las plantillas
+(`tarea_recurrencias`) tienen los campos de una tarea, un checklist `subtareas text[]` y una regla:
+
+- `cada_n_dias`: cada N días contando desde `fecha_inicio`.
+- `dia_mes`: día del mes; si el mes no tiene ese día, se usa el último (31 = último día).
+- `dias_semana`: días de la semana en ISO (1 = lunes … 7 = domingo).
+
+Funcionamiento:
+
+- **Generación:** el job `generar-tareas-recurrentes` corre a las 05:00 UTC y llama a
+  `private.generar_tareas_recurrentes()`. Para cada plantilla activa, crea una tarea normal en
+  «Por hacer» por cada día que toque, desde `ultima_generacion + 1` hasta hoy (Madrid). Tope de 31
+  días hacia atrás. `fecha_limite = día + plazo_dias` y el checklist se copia a `tarea_subtareas`.
+- **Se crean siempre**, aunque la anterior siga pendiente (decisión de Alejandro).
+- **Sin duplicados:** `unique (recurrencia_id, fecha_programada)` + `on conflict do nothing`.
+- **Generar al momento:** al guardar o reanudar, `actions/recurrencias.ts` llama a la RPC
+  `public.generar_tareas_recurrentes()`, que es `security definer`, comprueba `is_admin()` y no la
+  puede ejecutar `anon`.
+- **Sin rellenar días pasados:** crear o cambiar la regla no genera días anteriores a hoy, y reanudar
+  no recupera lo que tocó mientras estuvo pausada.
+- **Borrar una plantilla** deja sus tareas en el tablero (`recurrencia_id` pasa a null).
+- La regla está duplicada en `lib/recurrencias.ts`, solo para mostrar «Cada 5 días · próxima: 17 nov».
+  Si se cambia `private.toca_recurrencia`, hay que cambiar también esa copia.
 
 ## Documentación de Travelify
 
@@ -127,7 +173,9 @@ app/
     pipeline/                   Kanban GHL (drag & drop desktop, pestañas en mobile)
     pipeline/[opportunityId]/   Solo redirige a /pipeline?lead=ID (la ficha del lead es el panel lateral)
     clientes/                   Lista filtrable por estado con nº de proyectos
-    clientes/[clientId]/        Ficha: contacto, edición, dar de baja, contratos firmados, servicios contratados
+    clientes/[clientId]/        Ficha: contacto, edición, dar de baja, tareas pendientes, contratos firmados, servicios contratados
+    tareas/                     Kanban de tareas (Por hacer / En curso / Hecho), filtros por cliente y prioridad
+    tareas/recurrentes/         Plantillas de tareas recurrentes (crear, editar, pausar, eliminar)
     documentacion/              Lista por categoría + buscador; [slug]/ ver, [slug]/editar, nuevo/
     configuracion/              Cuenta, cambio de contraseña, estado de conexiones
 actions/                      Server Actions (zod + revalidatePath)
@@ -141,12 +189,13 @@ components/
   ui/                          Primitivos (Button, Card, Badge, Input/Select/Textarea, Dialogo…)
   documentacion/               Editor y render Markdown
   dashboard/                   KpiCard, Embudo
+  tareas/                      Tablero, tarjeta, detalle con checklist, campos, filtros, lista compacta
   form-dialogo.tsx             Botón + diálogo + formulario conectado a una Server Action
 supabase/migrations/          0001_init, 0002_contabilidad (revertida por 0004), 0003_documentacion,
                               0004_quitar_contabilidad, 0005_clientes_datos_propios, 0006_contratos,
                               0007_servicios_cobro, 0008_historial_contratos_estados,
                               0009_estados_por_tipo_de_cobro, 0010_oportunidades_perdidas,
-                              0011_lead_notas
+                              0011_lead_notas, 0012_tareas, 0013_tareas_recurrentes
 supabase/seed.sql             Alta del usuario en team_members
 ```
 

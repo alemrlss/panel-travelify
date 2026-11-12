@@ -123,6 +123,59 @@ export type LeadNota = {
   created_at: string
 }
 
+export type EstadoTarea = 'por_hacer' | 'en_curso' | 'hecho'
+export type PrioridadTarea = 'alta' | 'media' | 'baja'
+
+// Cliente y servicio opcionales (tareas internas). completada_at solo si estado = hecho.
+export type Tarea = {
+  id: string
+  titulo: string
+  descripcion: string | null
+  estado: EstadoTarea
+  prioridad: PrioridadTarea
+  fecha_limite: string | null
+  cliente_id: string | null
+  proyecto_id: string | null
+  completada_at: string | null
+  // Solo en tareas creadas por una plantilla recurrente.
+  recurrencia_id: string | null
+  fecha_programada: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type TipoRecurrencia = 'cada_n_dias' | 'dia_mes' | 'dias_semana'
+
+export type TareaRecurrencia = {
+  id: string
+  titulo: string
+  descripcion: string | null
+  prioridad: PrioridadTarea
+  cliente_id: string | null
+  proyecto_id: string | null
+  subtareas: string[]
+  tipo: TipoRecurrencia
+  cada_dias: number | null
+  dia_mes: number | null
+  // ISO: 1 = lunes … 7 = domingo.
+  dias_semana: number[] | null
+  plazo_dias: number
+  fecha_inicio: string
+  activa: boolean
+  ultima_generacion: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type TareaSubtarea = {
+  id: string
+  tarea_id: string
+  texto: string
+  hecha: boolean
+  orden: number
+  created_at: string
+}
+
 export type Documento = {
   id: string
   slug: string
@@ -164,9 +217,14 @@ export interface Database {
       documentos: Tabla<Documento, DocumentoEscribible, 'slug' | 'titulo'>
       lead_notas: Tabla<LeadNota, LeadNota, 'ghl_contact_id' | 'texto'>
       oportunidades_perdidas: Tabla<OportunidadPerdida, OportunidadPerdida, 'ghl_opportunity_id' | 'nombre' | 'motivo'>
+      tareas: Tabla<Tarea, Tarea, 'titulo'>
+      tarea_subtareas: Tabla<TareaSubtarea, TareaSubtarea, 'tarea_id' | 'texto'>
+      tarea_recurrencias: Tabla<TareaRecurrencia, TareaRecurrencia, 'titulo' | 'tipo'>
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      generar_tareas_recurrentes: { Args: Record<string, never>; Returns: number }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

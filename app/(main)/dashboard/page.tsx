@@ -6,6 +6,7 @@ import {
   Euro,
   Filter,
   KanbanSquare,
+  ListTodo,
   Repeat,
   Target,
   ThumbsDown,
@@ -17,7 +18,9 @@ import { createClient } from '@/lib/supabase/server'
 import { DIAS_SIN_MOVIMIENTO, PLAZOS_POR_ETAPA, getResumenPipeline } from '@/lib/metricas'
 import { MotivosPerdida } from '@/components/dashboard/motivos-perdida'
 import { recurrenteMensual } from '@/lib/servicios'
-import { formatEUR, haceDias, inicioDeMes, nombreMes } from '@/lib/formato'
+import { formatEUR, haceDias, hoyISO, inicioDeMes, nombreMes } from '@/lib/formato'
+import { vencimiento } from '@/lib/tareas'
+import { ListaTareas } from '@/components/tareas/tareas-cliente'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
 import { Aviso, Card, CardTitle } from '@/components/ui/card'
@@ -33,16 +36,24 @@ export default async function DashboardPage() {
   const mesActual = inicioDeMes(0)
 
   // GHL va aparte: si falla, las cifras de clientes cargan igual.
-  const [p, { data: clientes }, { data: servicios }, { data: perdidas }] = await Promise.all([
+  const [p, { data: clientes }, { data: servicios }, { data: perdidas }, { data: tareas }] = await Promise.all([
     getResumenPipeline().catch(() => null),
-    supabase.from('clientes').select('id, estado, created_at'),
+    supabase.from('clientes').select('id, empresa, estado, created_at'),
     supabase.from('proyectos').select('cliente_id, estado, cobro, importe_cents'),
     supabase.from('oportunidades_perdidas').select('motivo').gte('fecha', haceDias(90)),
+    supabase.from('tareas').select('*').neq('estado', 'hecho'),
   ])
   const idsActivos = new Set((clientes ?? []).filter((c) => c.estado === 'activo').map((c) => c.id))
   const activos = idsActivos.size
   const recurrente = recurrenteMensual((servicios ?? []).filter((s) => idsActivos.has(s.cliente_id)))
   const clientesNuevosMes = (clientes ?? []).filter((c) => c.created_at.slice(0, 10) >= mesActual).length
+  const hoy = hoyISO()
+  const urgentes = (tareas ?? []).filter((t) => {
+    const v = vencimiento(t.fecha_limite, t.estado, hoy)
+    return v === 'vencida' || v === 'hoy'
+  })
+  const vencidas = urgentes.filter((t) => vencimiento(t.fecha_limite, t.estado, hoy) === 'vencida').length
+  const nombresClientes = Object.fromEntries((clientes ?? []).map((c) => [c.id, c.empresa]))
 
   return (
     <PageContainer>
@@ -90,6 +101,23 @@ export default async function DashboardPage() {
           detalle={p ? `${p.won90} ganadas · ${p.lost90} perdidas · 90 días` : undefined}
         />
       </div>
+
+      {/* Fuera del bloque del pipeline: sale aunque GHL falle. */}
+      <Card className="mt-4">
+        <CardTitle icon={<ListTodo size={17} />} action={<VerTodo href="/tareas" />}>
+          Tareas
+        </CardTitle>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <dl className="grid grid-cols-3 gap-2 self-start lg:grid-cols-1">
+            <Mini label="Vencidas" valor={vencidas} tono={vencidas ? 'danger' : undefined} />
+            <Mini label="Para hoy" valor={urgentes.length - vencidas} />
+            <Mini label="Pendientes" valor={tareas?.length ?? 0} />
+          </dl>
+          <div className="lg:col-span-2">
+            <ListaTareas tareas={urgentes} hoy={hoy} clientes={nombresClientes} limite={5} vacio="Nada urgente para hoy" />
+          </div>
+        </div>
+      </Card>
 
       {p && (
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">

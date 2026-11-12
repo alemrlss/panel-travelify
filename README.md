@@ -6,7 +6,7 @@ Referencia técnica completa en [`PROYECTO.md`](./PROYECTO.md).
 ## Setup
 
 1. **Supabase**: proyecto dedicado (no reutilizar el de otros CRMs). Ejecutar en el SQL Editor,
-   en orden las migraciones de `supabase/migrations/` (0001 → 0004). En una base nueva, 0002 y 0004
+   en orden las migraciones de `supabase/migrations/` (0001 → 0013; la 0013 necesita la extensión pg_cron, que la propia migración habilita). En una base nueva, 0002 y 0004
    se anulan entre sí (0004 quita Contabilidad); si existe el bucket `facturas`, borrarlo desde Storage.
 2. **Usuario**: crear el usuario en Auth (email + contraseña, email confirmado) e insertar su fila:
    ```sql

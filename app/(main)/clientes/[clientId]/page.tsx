@@ -10,6 +10,7 @@ import {
   FolderKanban,
   History,
   KanbanSquare,
+  ListTodo,
   Mail,
   MessageCircle,
   Pencil,
@@ -31,6 +32,7 @@ import { ESTADOS_CLIENTE, TIPOS_COBRO, TIPOS_PROYECTO } from '@/lib/catalogos'
 import { esRecurrente, estadoServicio, pagosUnicos, pagosUnicosEnMarcha, recurrenteMensual } from '@/lib/servicios'
 import { eliminarCliente, setEstadoCliente } from '@/actions/clientes'
 import { cambiarEstadoServicio, eliminarProyecto, guardarProyecto } from '@/actions/proyectos'
+import { guardarTarea } from '@/actions/tareas'
 import { PageContainer } from '@/components/ui/page-container'
 import { PageHeader } from '@/components/ui/page-header'
 import { Card, CardTitle } from '@/components/ui/card'
@@ -45,6 +47,8 @@ import { FormCliente } from '@/components/clientes/form-cliente'
 import { Contratos } from '@/components/clientes/contratos'
 import { Historial } from '@/components/clientes/historial'
 import { VincularOportunidad } from '@/components/clientes/vincular-oportunidad'
+import { CamposTarea } from '@/components/tareas/campos-tarea'
+import { ListaTareas } from '@/components/tareas/tareas-cliente'
 import { clsx } from '@/lib/clsx'
 import type { EstadoProyecto } from '@/lib/supabase/types'
 
@@ -64,7 +68,7 @@ export default async function ClientePage({
   const { data: cliente } = await supabase.from('clientes').select('*').eq('id', clientId).maybeSingle()
   if (!cliente) notFound()
 
-  const [{ data: proyectos }, { data: contratos }, { data: eventos }, oportunidades] = await Promise.all([
+  const [{ data: proyectos }, { data: contratos }, { data: eventos }, { data: tareas }, oportunidades] = await Promise.all([
     supabase.from('proyectos').select('*').eq('cliente_id', clientId).order('created_at'),
     supabase.from('contratos').select('*').eq('cliente_id', clientId),
     supabase
@@ -73,6 +77,7 @@ export default async function ClientePage({
       .eq('cliente_id', clientId)
       .order('fecha', { ascending: false })
       .order('created_at', { ascending: false }),
+    supabase.from('tareas').select('*').eq('cliente_id', clientId).neq('estado', 'hecho'),
     // Solo si no está vinculado: oportunidades abiertas para elegir.
     cliente.ghl_opportunity_id
       ? Promise.resolve([])
@@ -222,7 +227,7 @@ export default async function ClientePage({
             <div className="mt-5 border-t border-hairline/[0.06] pt-4">
               <BotonAccion
                 action={eliminarCliente.bind(null, cliente.id)}
-                confirmar={`¿Eliminar a ${cliente.empresa} para siempre? Se borran sus servicios, contratos e historial. Si ya no es cliente, mejor "Dar de baja".`}
+                confirmar={`¿Eliminar a ${cliente.empresa} para siempre? Se borran sus servicios, contratos e historial (sus tareas se conservan sin cliente). Si ya no es cliente, mejor "Dar de baja".`}
                 variant="danger"
               >
                 <Trash2 size={14} />
@@ -232,8 +237,45 @@ export default async function ClientePage({
           </Card>
         </div>
 
-        {/* Columna derecha: servicios contratados y contratos */}
+        {/* Columna derecha: tareas, servicios contratados y contratos */}
         <div className="space-y-4 lg:col-span-3">
+          <Card>
+            <CardTitle
+              icon={<ListTodo size={17} />}
+              action={
+                <FormDialogo
+                  titulo="Nueva tarea"
+                  trigger={<><Plus size={15} />Tarea</>}
+                  triggerSize="sm"
+                  action={guardarTarea}
+                  submitLabel="Crear tarea"
+                >
+                  <CamposTarea
+                    clienteIdInicial={cliente.id}
+                    clientes={[{ id: cliente.id, empresa: cliente.empresa, estado: cliente.estado }]}
+                    servicios={servicios.map((s) => ({ id: s.id, cliente_id: s.cliente_id, nombre: s.nombre }))}
+                  />
+                </FormDialogo>
+              }
+            >
+              Tareas pendientes
+            </CardTitle>
+            <ListaTareas
+              tareas={tareas ?? []}
+              hoy={hoy}
+              servicios={Object.fromEntries(servicios.map((s) => [s.id, s.nombre]))}
+            />
+            <div className="mt-3 border-t border-hairline/[0.06] pt-3">
+              <Link
+                href={`/tareas?cliente=${cliente.id}`}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-300 hover:text-brand-200"
+              >
+                <ListTodo size={14} />
+                Ver en el tablero
+              </Link>
+            </div>
+          </Card>
+
           <Card>
             <CardTitle
               icon={<FolderKanban size={17} />}
